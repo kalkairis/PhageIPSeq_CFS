@@ -35,3 +35,5 @@ def get_oligos_with_outcome(data_type: str = 'fold') -> pd.DataFrame:
                                           append=True).reorder_levels([1, 0])
     ret.index.rename(['is_CFS', 'sample_id'], inplace=True)
     return ret
+
+def get_oligos_metadata

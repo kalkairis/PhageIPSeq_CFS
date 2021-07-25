@@ -29,4 +29,4 @@ if __name__ == "__main__":
         inplace=True)
     oligos_metadata_df.to_csv(
         os.path.join(repository_data_dir, 'oligos_metadata.csv'))
-    print("here")
+    print(os.path.join(repository_data_dir, 'oligos_metadata.csv'))
