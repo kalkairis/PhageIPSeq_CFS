@@ -36,4 +36,17 @@ def get_oligos_with_outcome(data_type: str = 'fold') -> pd.DataFrame:
     ret.index.rename(['is_CFS', 'sample_id'], inplace=True)
     return ret
 
-def get_oligos_metadata
+
+def get_oligos_metadata():
+    ret = pd.read_csv(os.path.join(repository_data_dir, 'oligos-metadata.csv'), index_col=0)
+    return ret
+
+
+def get_oligos_metadata_subgroup(data_type: str = 'fold', subgroup: str = 'is_bac_flagella') -> pd.DataFrame:
+    oligos_df = get_oligos_df(data_type=data_type)
+    metadata = get_oligos_metadata()[subgroup]
+    ret = oligos_df.loc[metadata]
+    return ret
+
+
+get_oligos_metadata_subgroup()
