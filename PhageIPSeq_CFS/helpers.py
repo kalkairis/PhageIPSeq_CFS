@@ -6,7 +6,7 @@ from PhageIPSeq_CFS.config import repository_data_dir
 
 
 def get_metadata_df():
-    return pd.read_csv(os.path.join(repository_data_dir, 'individuals_metadata.csv'), index_col=0)
+    return pd.read_csv(os.path.join(repository_data_dir, 'individuals_metadata.csv'), index_col=0, low_memory=False)
 
 
 def get_oligos_df(data_type: str = 'fold') -> pd.DataFrame:
@@ -16,7 +16,7 @@ def get_oligos_df(data_type: str = 'fold') -> pd.DataFrame:
     :return:
     """
     assert data_type in ['fold', 'exist', 'p_val']
-    ret = pd.read_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"), index_col=0)
+    ret = pd.read_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"), index_col=0, low_memory=False)
     return ret.loc[:, ret.notnull().any()].copy()
 
 
@@ -38,15 +38,20 @@ def get_oligos_with_outcome(data_type: str = 'fold') -> pd.DataFrame:
 
 
 def get_oligos_metadata():
-    ret = pd.read_csv(os.path.join(repository_data_dir, 'oligos-metadata.csv'), index_col=0)
+    ret = pd.read_csv(os.path.join(repository_data_dir, 'oligos_metadata.csv'), index_col=0, low_memory=False)
     return ret
 
 
 def get_oligos_metadata_subgroup(data_type: str = 'fold', subgroup: str = 'is_bac_flagella') -> pd.DataFrame:
     oligos_df = get_oligos_df(data_type=data_type)
     metadata = get_oligos_metadata()[subgroup]
-    ret = oligos_df.loc[metadata]
+    ret = oligos_df.loc[:, metadata]
     return ret
 
 
-get_oligos_metadata_subgroup()
+def get_oligos_metadata_subgroup_with_outcome(data_type: str = 'fold',
+                                              subgroup: str = 'is_bac_flagella') -> pd.DataFrame:
+    oligos_df = get_oligos_with_outcome(data_type=data_type)
+    metadata = get_oligos_metadata()[subgroup]
+    ret = oligos_df.loc[:, metadata]
+    return ret
