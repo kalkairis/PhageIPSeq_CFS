@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 
 import pandas as pd
 
@@ -55,3 +56,13 @@ def get_oligos_metadata_subgroup_with_outcome(data_type: str = 'fold',
     metadata = get_oligos_metadata()[subgroup]
     ret = oligos_df.loc[:, metadata]
     return ret
+
+
+def split_xy_df_and_filter_by_threshold(xy_df: pd.DataFrame, bottom_threshold: float = 0.05) -> Tuple[
+    pd.DataFrame, pd.Series]:
+    filter_function = pd.notnull if xy_df.isnull().any().any() else lambda x: x != 0
+    xy_df = xy_df.loc[:, xy_df.applymap(filter_function).mean().ge(bottom_threshold)]
+    y = xy_df.reset_index(level=0)[xy_df.index.names[0]]
+    x = xy_df.reset_index(level=0, drop=True).fillna(0)
+    return x, y
+

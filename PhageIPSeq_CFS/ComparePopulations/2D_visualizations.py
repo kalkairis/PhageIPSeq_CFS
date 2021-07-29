@@ -9,8 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
 from PhageIPSeq_CFS.config import visualizations_dir, logs_path, oligo_families
-from PhageIPSeq_CFS.helpers import get_oligos_with_outcome, get_oligos_metadata_subgroup, \
-    get_oligos_metadata_subgroup_with_outcome
+from PhageIPSeq_CFS.helpers import get_oligos_with_outcome, get_oligos_metadata_subgroup_with_outcome
 
 
 def run_2d_visualization_by_threshold(df, transformer_type='PCA', out_figure_path=None, bottom_threshold=0.1):
@@ -41,8 +40,9 @@ def run_pca_visualization_from_entire_oligos_df(data_type='fold', bottom_thresho
     run_2d_visualization_by_threshold(df, transformer_type, out_path)
     return bottom_threshold
 
+
 def run_2d_visualizations_for_groups():
-    out_dir = os.path.join(visualizations_dir, '2D_visualization' , 'oligos_subgroups')
+    out_dir = os.path.join(visualizations_dir, '2D_visualization', 'oligos_subgroups')
     os.makedirs(out_dir, exist_ok=True)
     with qp(f"sub2dvis") as q:
         q.startpermanentrun()
@@ -56,7 +56,8 @@ def run_2d_visualizations_for_groups():
                     for threshold_percent in range(0, 100, 5):
                         out_figure_path = os.path.join(out_figures_dir, f"{oligo_family}_"
                                                                         f"threshold_{round(threshold_percent, 0)}.png")
-                        waiton.append(q.method(run_2d_visualization_by_threshold, (df, transformer_type, out_figure_path, threshold_percent/100)))
+                        waiton.append(q.method(run_2d_visualization_by_threshold,
+                                               (df, transformer_type, out_figure_path, threshold_percent / 100)))
         res = q.wait(waiton)
 
 
