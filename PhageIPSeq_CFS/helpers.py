@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 
 import pandas as pd
 
@@ -6,7 +7,7 @@ from PhageIPSeq_CFS.config import repository_data_dir
 
 
 def get_metadata_df():
-    return pd.read_csv(os.path.join(repository_data_dir, 'metadata.csv'), index_col=0)
+    return pd.read_csv(os.path.join(repository_data_dir, 'individuals_metadata.csv'), index_col=0, low_memory=False)
 
 
 def get_oligos_df(data_type: str = 'fold') -> pd.DataFrame:
@@ -16,7 +17,7 @@ def get_oligos_df(data_type: str = 'fold') -> pd.DataFrame:
     :return:
     """
     assert data_type in ['fold', 'exist', 'p_val']
-    ret = pd.read_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"), index_col=0)
+    ret = pd.read_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"), index_col=0, low_memory=False)
     return ret.loc[:, ret.notnull().any()].copy()
 
 
@@ -35,3 +36,33 @@ def get_oligos_with_outcome(data_type: str = 'fold') -> pd.DataFrame:
                                           append=True).reorder_levels([1, 0])
     ret.index.rename(['is_CFS', 'sample_id'], inplace=True)
     return ret
+
+
+def get_oligos_metadata():
+    ret = pd.read_csv(os.path.join(repository_data_dir, 'oligos_metadata.csv'), index_col=0, low_memory=False)
+    return ret
+
+
+def get_oligos_metadata_subgroup(data_type: str = 'fold', subgroup: str = 'is_bac_flagella') -> pd.DataFrame:
+    oligos_df = get_oligos_df(data_type=data_type)
+    metadata = get_oligos_metadata()[subgroup]
+    ret = oligos_df.loc[:, metadata]
+    return ret
+
+
+def get_oligos_metadata_subgroup_with_outcome(data_type: str = 'fold',
+                                              subgroup: str = 'is_bac_flagella') -> pd.DataFrame:
+    oligos_df = get_oligos_with_outcome(data_type=data_type)
+    metadata = get_oligos_metadata()[subgroup]
+    ret = oligos_df.loc[:, metadata]
+    return ret
+
+
+def split_xy_df_and_filter_by_threshold(xy_df: pd.DataFrame, bottom_threshold: float = 0.05) -> Tuple[
+    pd.DataFrame, pd.Series]:
+    filter_function = pd.notnull if xy_df.isnull().any().any() else lambda x: x != 0
+    xy_df = xy_df.loc[:, xy_df.applymap(filter_function).mean().ge(bottom_threshold)]
+    y = xy_df.reset_index(level=0)[xy_df.index.names[0]]
+    x = xy_df.reset_index(level=0, drop=True).fillna(0)
+    return x, y
+
