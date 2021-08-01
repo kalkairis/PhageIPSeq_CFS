@@ -6,13 +6,11 @@ import pandas as pd
 import seaborn as sns
 import shap
 from LabQueue.qp import qp
-from LabQueue.qp import fakeqp
-from LabUtils.addloglevels import sethandlers
 from scipy.stats import pearsonr
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.metrics import auc
 
-from PhageIPSeq_CFS.config import visualizations_dir, logs_path, oligo_families
 from PhageIPSeq_CFS.helpers import get_oligos_with_outcome, split_xy_df_and_filter_by_threshold, \
     get_oligos_metadata_subgroup_with_outcome
 
@@ -138,14 +136,18 @@ def predict_and_run_shape_on_oligo_subgroup(oligos_subgroup, figures_dir):
 
 
 if __name__ == "__main__":
-    figures_dir = os.path.join(visualizations_dir, 'Predictions', 'RidgeClassifier')
-    all_results = {}
-    sethandlers()
-    os.chdir(logs_path)
-    with fakeqp(f"wpreds") as q:
-        q.startpermanentrun()
-        waiton = []
-        for oligos_subgroup in oligo_families + ['all']:
-            waiton.append(q.method(predict_and_run_shape_on_oligo_subgroup, (oligos_subgroup, figures_dir)))
-        q.wait(waiton, assertnoerrors=False)
+    # figures_dir = os.path.join(visualizations_dir, 'Predictions', 'RidgeClassifier')
+    # all_results = {}
+    # sethandlers()
+    # os.chdir(logs_path)
+    # with fakeqp(f"wpreds") as q:
+    #     q.startpermanentrun()
+    #     waiton = []
+    #     for oligos_subgroup in oligo_families + ['all']:
+    #         waiton.append(q.method(predict_and_run_shape_on_oligo_subgroup, (oligos_subgroup, figures_dir)))
+    #     q.wait(waiton, assertnoerrors=False)
+    # print("here")
+    x, y = get_x_y(bottom_threshold=0.05, data_type='fold', oligos_subgroup='is_bac_flagella')
+    ret = run_leave_one_out_prediction(x, y, GradientBoostingClassifier, n_estimators=2000, learning_rate=.01,
+                                       max_depth=6, max_features=1, min_samples_leaf=10)
     print("here")
