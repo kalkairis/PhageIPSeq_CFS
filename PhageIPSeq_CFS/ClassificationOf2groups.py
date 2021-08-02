@@ -409,10 +409,10 @@ if __name__ == "__main__":
     os.chdir('/net/mraid08/export/genie/Lab/Personal/Thomas/CacheForLoadingPhIPseqData_NewLoader')
 
     # variables
-    studyIDsG1 = [26]
-    studyIDsG2 = [27]
-    G1name = 'CFS' # do not use > or <, just write gt, lt (greater than, less than), otherwise the filenames are fucked in iWinows
-    G2name = 'UK-healthy' # do not use > or <, just write gt, lt (greater than, less than), otherwise the filenames are fucked in iWinows
+    studyIDsG1 = [27]
+    studyIDsG2 = [26]
+    G1name = 'UK-healthy' # do not use > or <, just write gt, lt (greater than, less than), otherwise the filenames are fucked in iWinows
+    G2name = 'CFS' # do not use > or <, just write gt, lt (greater than, less than), otherwise the filenames are fucked in iWinows
     groupby_regG1 = 'first'  # if you want to load all samples, put there >None<, do not put an empty string, just write None without anyhting, other options are: ['first', 'latest', 'largest', 'median', 'mean']
     groupby_regG2 = 'first'  # if you want to load all samples, put there >None<, do not put an empty string, just write None without anyhting, other options are: ['first', 'latest', 'largest', 'median', 'mean']
 
