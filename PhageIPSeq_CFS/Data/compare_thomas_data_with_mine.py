@@ -16,4 +16,6 @@ if __name__ == "__main__":
     thomas_data = get_thomas_data()
     getter_data = dict(zip(['x', 'y'], split_xy_df_and_filter_by_threshold(
         get_oligos_metadata_subgroup_with_outcome(data_type='fold', subgroup='is_PNP'), bottom_threshold=0.05)))
-    print("here")
+    assert getter_data['x'].equals(thomas_data['x'].loc[getter_data['x'].index.values, getter_data['x'].columns])
+    assert getter_data['y'].eq(thomas_data['y'].loc[getter_data['y'].index].values.ravel()).all()
+    print("data is equal")
