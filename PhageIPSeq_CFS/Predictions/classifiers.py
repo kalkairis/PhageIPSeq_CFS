@@ -1,3 +1,5 @@
+from sklearn.metrics import roc_curve, auc
+from numpy import interp
 import os
 
 import matplotlib.pyplot as plt
@@ -5,12 +7,14 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import shap
-from LabQueue.qp import qp
+from LabQueue.qp import qp, fakeqp
+from LabUtils.addloglevels import sethandlers
 from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.metrics import auc
 
+from PhageIPSeq_CFS.config import repository_data_dir, visualizations_dir, logs_path, oligo_families
 from PhageIPSeq_CFS.helpers import get_oligos_with_outcome, split_xy_df_and_filter_by_threshold, \
     get_oligos_metadata_subgroup_with_outcome
 
@@ -23,13 +27,13 @@ def run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predi
         train_x = x.drop(index=sample)
         train_y = y.drop(index=sample)
         predictor = predictor_class(*predictor_args, **predictor_kwargs)
-        predictor.fit(train_x, train_y)
+        predictor.fit(train_x, train_y.values.ravel())
         y_hat = predictor.predict(x.loc[sample].values.reshape(1, -1))[0]
         if isinstance(predictor, RidgeClassifier):
             predict_proba = predictor._predict_proba_lr(x.loc[sample].values.reshape(1, -1))[0][1]
         else:
             predict_proba = predictor.predict_proba(x.loc[sample].values.reshape(1, -1))[0][1]
-        ret[sample] = {'y': y.loc[sample], 'y_hat': y_hat, 'predict_proba': predict_proba}
+        ret[sample] = {'y': y.loc[sample].values[0], 'y_hat': y_hat, 'predict_proba': predict_proba}
     return pd.DataFrame(ret).transpose()
 
 
@@ -136,18 +140,16 @@ def predict_and_run_shape_on_oligo_subgroup(oligos_subgroup, figures_dir):
 
 
 if __name__ == "__main__":
-    # figures_dir = os.path.join(visualizations_dir, 'Predictions', 'RidgeClassifier')
-    # all_results = {}
-    # sethandlers()
-    # os.chdir(logs_path)
-    # with fakeqp(f"wpreds") as q:
-    #     q.startpermanentrun()
-    #     waiton = []
-    #     for oligos_subgroup in oligo_families + ['all']:
-    #         waiton.append(q.method(predict_and_run_shape_on_oligo_subgroup, (oligos_subgroup, figures_dir)))
-    #     q.wait(waiton, assertnoerrors=False)
-    # print("here")
-    x, y = get_x_y(bottom_threshold=0.05, data_type='fold', oligos_subgroup='is_bac_flagella')
-    ret = run_leave_one_out_prediction(x, y, GradientBoostingClassifier, n_estimators=2000, learning_rate=.01,
-                                       max_depth=6, max_features=1, min_samples_leaf=10)
+    figures_dir = os.path.join(visualizations_dir, 'Predictions', 'RidgeClassifier')
+    all_results = {}
+    sethandlers()
+    os.chdir(logs_path)
+    with fakeqp(f"wpreds") as q:
+        q.startpermanentrun()
+        waiton = []
+        for oligos_subgroup in oligo_families + ['all']:
+            waiton.append(q.method(predict_and_run_shape_on_oligo_subgroup, (oligos_subgroup, figures_dir)))
+        q.wait(waiton, assertnoerrors=False)
+    print("here")
+
     print("here")

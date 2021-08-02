@@ -173,6 +173,7 @@ def do_classifier(X, y, typeOfData, title, summaryDf, G1name, G2name, num_olis_b
             tprs.append(interp(mean_fpr, fpr, tpr))
             tprs[-1][0] = 0.0
             roc_auc = auc(fpr, tpr)
+            print(f"CV #{i}: value counts = {y.iloc[test].value_counts()}, roc_auc={roc_auc}")
             aucs.append(roc_auc)
             plt.plot(fpr, tpr, lw=1, alpha=0.3)
             i += 1
