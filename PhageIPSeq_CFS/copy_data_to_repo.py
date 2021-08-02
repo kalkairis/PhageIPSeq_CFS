@@ -9,14 +9,14 @@ from PhageIPSeq_CFS.config import repository_data_dir
 if __name__ == "__main__":
     individuals_metadata_path = os.path.join(repository_data_dir, 'individuals_metadata.csv')
     individuals_metadata_df = pd.read_csv(individuals_metadata_path, index_col=0)
-    # for data_type in ["fold", "exist", "p_val"]:
-    #     loader = PhIPSeqLoader()
-    #     df = loader.get_data(data_type=data_type, library='Agilent').df.loc[individuals_metadata_df.index.values]
-    #     print(f"{data_type} initial size: {df.shape[1]}")
-    #     df = df.iloc[:, df.notnull().any().values]
-    #     df = df.iloc[:, df.ne(0).any().values]
-    #     print(f"{data_type} final size: {df.shape[1]}")
-    #     df.to_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"))
+    for data_type in ["fold", "exist", "p_val"]:
+        loader = PhIPSeqLoader()
+        df = loader.get_data(data_type=data_type, library='Agilent').df.loc[individuals_metadata_df.index.values]
+        print(f"{data_type} initial size: {df.shape[1]}")
+        df = df.iloc[:, df.notnull().any().values]
+        df = df.iloc[:, df.ne(0).any().values]
+        print(f"{data_type} final size: {df.shape[1]}")
+        df.to_csv(os.path.join(repository_data_dir, f"{data_type}_df.csv"))
     non_null_oligos = PhIPSeqLoader().get_data(data_type='fold', library='Agilent').df.loc[
         individuals_metadata_df.index.values]
     non_null_oligos = non_null_oligos.columns[non_null_oligos.notnull().any().values]
