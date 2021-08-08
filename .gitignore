@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 .idea/**
 PhageIPSeq_CFS/Figures/**
+/PhageIPSeq_CFS/Data/tmp/

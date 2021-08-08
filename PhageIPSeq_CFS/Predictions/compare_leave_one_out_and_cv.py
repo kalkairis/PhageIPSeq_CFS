@@ -1,7 +1,9 @@
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from numpy import interp
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import roc_curve, auc
@@ -56,6 +58,24 @@ def get_cross_val_results(X, y, predictor, **predictor_kwargs):
     return ret
 
 
+def compare_thomas_cross_validation_and_predictions(cross_val_ret, skip_assert=False):
+    thomas_cross_val_ret = pd.read_csv(os.path.join(repository_data_dir, 'tmp', 'thomas_predictions.csv'), index_col=0)
+    combined_results = pd.merge(cross_val_ret, thomas_cross_val_ret['predict_proba'], left_index=True, right_index=True,
+                                how='outer', suffixes=('_mine', '_thomas'))
+    ax = plt.subplot()
+    sns.scatterplot(data=combined_results, x='predict_proba_mine', y='predict_proba_thomas', hue='y')
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    plt.show()
+    plt.close()
+    aucs = {}
+    for k in ['mine', 'thomas']:
+        fpr, tpr, thresholds = roc_curve(combined_results.y, combined_results[f'predict_proba_{k}'])
+        aucs[k] = auc(fpr, tpr)
+    if not skip_assert:
+        assert round(aucs['mine'], 2) == round(aucs['thomas'], 2)
+
+
 if __name__ == "__main__":
     x = pd.read_csv(os.path.join(repository_data_dir, 'tmp', 'x.csv'), index_col=0)
     y = pd.read_csv(os.path.join(repository_data_dir, 'tmp', 'y.csv'), index_col=0)
@@ -63,4 +83,6 @@ if __name__ == "__main__":
                                                   learning_rate=.01, max_depth=6, max_features=1, min_samples_leaf=10)
     cross_val_ret = get_cross_val_results(x, y, GradientBoostingClassifier, n_estimators=2000,
                                           learning_rate=.01, max_depth=6, max_features=1, min_samples_leaf=10)
+    compare_thomas_cross_validation_and_predictions(cross_val_ret)
+    compare_thomas_cross_validation_and_predictions(leave_out_out_ret, skip_assert=True)
     print("here")
