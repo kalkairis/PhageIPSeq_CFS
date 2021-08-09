@@ -11,6 +11,7 @@ from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.metrics import auc
+from sklearn.model_selection import train_test_split
 
 from PhageIPSeq_CFS.config import visualizations_dir, logs_path, oligo_families
 from PhageIPSeq_CFS.helpers import get_oligos_with_outcome, split_xy_df_and_filter_by_threshold, \
@@ -35,10 +36,11 @@ def run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predi
     return pd.DataFrame(ret).transpose()
 
 
-def get_prediction_results(output_dir, x, y, predictor_class, *predictor_args, **predictor_kwargs):
+def get_prediction_results(output_dir, x, y, num_confidence_intervals_repeats=100,
+                           predictor_class=GradientBoostingClassifier, *predictor_args, **predictor_kwargs):
     prediction_results = run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predictor_kwargs)
     if len(prediction_results) == 0:
-        return {'auc': None, 'pearson_r': None, 'pearson_p_value': None}
+        return {}
 
     os.makedirs(output_dir, exist_ok=True)
     # create scatter of true and predicted values
@@ -48,8 +50,23 @@ def get_prediction_results(output_dir, x, y, predictor_class, *predictor_args, *
     plt.savefig(os.path.join(output_dir, 'predicted_true_scatter.png'))
     plt.close()
 
+    auc_value, fprs, tprs = compute_auc_from_prediction_results(prediction_results, return_fprs_tprs=True)
+    auc_confidence_interval = [compute_auc_from_prediction_results(train_test_split(prediction_results)[0]) for _ in
+                               range(num_confidence_intervals_repeats)]
+    auc_std = np.std(auc_confidence_interval)
+    ax = plt.subplot()
+    ax.plot(fprs, tprs, color='b', label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+            label='Chance', alpha=.8)
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, 'prediction_auc.png'))
+    plt.close()
+    return {'auc': auc_value, 'auc_std': auc_std, 'num_oligos': x.shape[1]}
+
+
+def compute_auc_from_prediction_results(prediction_results, return_fprs_tprs=False):
     # create roc curve
-    prediction_results.sort_values(by='predict_proba', inplace=True, ascending=False)
+    prediction_results = prediction_results.sort_values(by='predict_proba', ascending=False)
     tpr = [0]
     fpr = [0]
     for i in range(prediction_results.shape[0]):
@@ -62,14 +79,10 @@ def get_prediction_results(output_dir, x, y, predictor_class, *predictor_args, *
     tprs = np.array(tpr) / prediction_results.y.sum()
     fprs = np.array(fpr) / prediction_results.y.eq(0).sum()
     auc_value = auc(fprs, tprs)
-    ax = plt.subplot()
-    ax.plot(fprs, tprs, color='b', label=f"Predictor (AUC={round(auc_value, 3)})")
-    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
-            label='Chance', alpha=.8)
-    plt.legend()
-    plt.savefig(os.path.join(output_dir, 'prediction_auc.png'))
-    plt.close()
-    return {'auc': auc_value, 'pearson_r': pearson_r, 'pearson_p_value': pearson_p_value}
+    if return_fprs_tprs:
+        return auc_value, fprs, tprs
+    else:
+        return auc_value
 
 
 def get_x_y(bottom_threshold, data_type, oligos_subgroup):
@@ -85,11 +98,11 @@ def get_x_y(bottom_threshold, data_type, oligos_subgroup):
 
 
 def get_prediction_parameters(data_type, threshold_percent, figures_dir, oligos_subgroup='all',
-                              predictor_class=RidgeClassifier, **predictor_kwargs):
+                              num_confidence_intervals_repeats=100, predictor_class=RidgeClassifier, **predictor_kwargs):
     bottom_threshold = threshold_percent / 100
     x, y = get_x_y(bottom_threshold, data_type, oligos_subgroup)
     output_dir = os.path.join(figures_dir, data_type, str(bottom_threshold))
-    return get_prediction_results(output_dir, x, y, predictor_class, **predictor_kwargs)
+    return get_prediction_results(output_dir, x, y, num_confidence_intervals_repeats=num_confidence_intervals_repeats, predictor_class=predictor_class, **predictor_kwargs)
 
 
 def get_top_prediction_shap_values(data_type, bottom_threshold, figures_dir, oligos_subgroup, predictor_class,
@@ -122,33 +135,34 @@ def get_top_prediction_shap_values(data_type, bottom_threshold, figures_dir, oli
     plt.close()
 
 
-def predict_and_run_shape_on_oligo_subgroup(oligos_subgroup, figures_dir, predictore_class, **predictor_kwargs):
+def predict_and_run_shape_on_oligo_subgroup(oligos_subgroup, figures_dir, num_repeats_in_auc_ci, predictore_class, **predictor_kwargs):
     curr_figures_dir = os.path.join(figures_dir, oligos_subgroup)
     with qp(f"preds") as q:
         q.startpermanentrun()
         waiton = {}
         for data_type in ['fold', 'exist']:
-            for threshold_percent in range(0, 100, 5):
+            for threshold_percent in [0, 1, 5, 10, 20, 50, 95, 100]:
                 waiton[(data_type, threshold_percent)] = q.method(get_prediction_parameters,
                                                                   (data_type, threshold_percent, curr_figures_dir,
-                                                                   oligos_subgroup, predictore_class),
+                                                                   oligos_subgroup, num_repeats_in_auc_ci, predictore_class),
                                                                   kwargs=predictor_kwargs)
         all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
     all_results = pd.DataFrame(all_results).transpose().reset_index().rename(
         columns={'level_0': 'data_type', 'level_1': 'bottom_threshold'}).sort_values(by='auc', ascending=False)
     all_results.to_csv(os.path.join(curr_figures_dir, 'results_summary.csv'))
-    all_results.dropna(inplace=True)
+    all_results['oligos_subgroup'] = oligos_subgroup
     best_params = all_results.iloc[0][
         ['data_type', 'bottom_threshold']].to_dict()
     get_top_prediction_shap_values(**best_params, predictor_class=predictore_class, figures_dir=curr_figures_dir,
                                    oligos_subgroup=oligos_subgroup, **predictor_kwargs)
-    return all_results.iloc[0].to_dict()
+    return all_results
 
 
 if __name__ == "__main__":
     predictor_class = GradientBoostingClassifier
     predictor_kwargs = {"n_estimators": 2000, "learning_rate": .01, "max_depth": 6, "max_features": 1,
                         "min_samples_leaf": 10}
+    num_auc_repeats = 1000
     figures_dir = os.path.join(visualizations_dir, 'Predictions', predictor_class.__name__)
     all_results = {}
     sethandlers()
@@ -158,7 +172,13 @@ if __name__ == "__main__":
         waiton = {}
         for oligos_subgroup in oligo_families + ['all']:
             waiton[oligos_subgroup] = q.method(predict_and_run_shape_on_oligo_subgroup,
-                                               (oligos_subgroup, figures_dir, predictor_class), kwargs=predictor_kwargs)
+                                               (oligos_subgroup, figures_dir, num_auc_repeats, predictor_class), kwargs=predictor_kwargs)
         all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
-    pd.DataFrame(all_results).transpose().sort_values(by='auc', ascending=False).to_csv(
+    all_results = (pd
+                   .concat(list(all_results.values()))
+                   .set_index(['data_type', 'bottom_threshold', 'oligos_subgroup'])
+                   .unstack('oligos_subgroup')
+                   .swaplevel(axis='columns')
+                   .sort_index(axis='columns'))
+    all_results.to_csv(
         os.path.join(figures_dir, 'best_results_summary.csv'))
