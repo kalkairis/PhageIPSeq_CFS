@@ -62,7 +62,7 @@ def get_prediction_results(output_dir, x, y, num_confidence_intervals_repeats=10
             'num_features': x.shape[1]}
 
 
-def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, predictor_class, ax=None,
+def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, predictor_class, color='blue', ax=None,
                                      prediction_results=None, *predictor_args,
                                      **predictor_kwargs):
     if prediction_results is None:
@@ -77,7 +77,7 @@ def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, pre
         auc_confidence_interval.append(round_auc)
         ax.plot(round_fprs, round_tprs, color='grey', alpha=0.05)
     auc_std = np.std(auc_confidence_interval)
-    ax.plot(fprs, tprs, color='b', label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
+    ax.plot(fprs, tprs, color=color, label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
     ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
             label='Chance', alpha=.8)
     plt.legend()
