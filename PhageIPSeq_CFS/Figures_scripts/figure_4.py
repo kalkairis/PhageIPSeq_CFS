@@ -29,7 +29,8 @@ def metadata_distribution_sub_figure(spec, fig):
     metadata.columns = list(map(get_blood_test_name, metadata.columns))
     blood_tests_order = pd.Series(
         {col: stats.mannwhitneyu(*list(map(lambda item_values: item_values[1].dropna().values, (
-            metadata[col].unstack(level=1)[['Healthy', 'Sick']].iteritems()))), alternative='two-sided').pvalue for col in
+            metadata[col].unstack(level=1)[['Healthy', 'Sick']].iteritems()))), alternative='two-sided').pvalue for col
+         in
          metadata.columns}).sort_values().index.values
     stacked_metadata = metadata.stack().reset_index(level=2).rename(
         columns={'level_2': 'Blood Test', 0: 'value'}).reset_index()
