@@ -24,7 +24,8 @@ def run_2d_visualization_by_threshold(df, transformer_type='PCA', out_figure_pat
     columns = list(map(lambda i: f'{transformer_type} {i + 1}', range(transformed_df.shape[1])))
     transformed_df = pd.DataFrame(data=transformed_df, index=df.index, columns=columns)
     transformed_df.reset_index(0, inplace=True)
-    sns.scatterplot(data=transformed_df, x=columns[0], y=columns[1], hue='is_CFS')
+    most_different_pcs = transformed_df.groupby('is_CFS').median().diff().iloc[1].abs().sort_values(ascending=False).head(2).index
+    sns.scatterplot(data=transformed_df, x=most_different_pcs[0], y=most_different_pcs[1], hue='is_CFS')
 
     if out_figure_path is None:
         out_figure_path = os.path.join(f"{transformer_type}_threshold_{round(bottom_threshold * 100, 0)}.png")

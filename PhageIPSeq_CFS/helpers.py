@@ -7,8 +7,11 @@ from sklearn.impute import SimpleImputer
 from PhageIPSeq_CFS.config import repository_data_dir
 
 
-def get_individuals_metadata_df():
+def get_individuals_metadata_df(threshold_for_removal = 10):
     meta = pd.read_csv(os.path.join(repository_data_dir, 'individuals_metadata.csv'), index_col=0, low_memory=False)
+    cols_to_remove = meta.groupby('catrecruit_Binary').count().diff().dropna().T.abs()[1].sort_values(ascending=False)
+    cols_to_remove = cols_to_remove[cols_to_remove.gt(threshold_for_removal)].index
+    meta.drop(columns=cols_to_remove, inplace=True)
     return meta.applymap(to_numeric)
 
 
@@ -61,12 +64,14 @@ def get_oligos_metadata_subgroup_with_outcome(data_type: str = 'fold',
     return oligos_df
 
 
-def split_xy_df_and_filter_by_threshold(xy_df: pd.DataFrame, bottom_threshold: float = 0.05) -> Tuple[
+def split_xy_df_and_filter_by_threshold(xy_df: pd.DataFrame, bottom_threshold: float = 0.05, fillna=True) -> Tuple[
     pd.DataFrame, pd.Series]:
     filter_function = pd.notnull if xy_df.isnull().any().any() else lambda x: x != 0
     xy_df = xy_df.loc[:, xy_df.applymap(filter_function).mean().ge(bottom_threshold)]
     y = xy_df.reset_index(level=0)[xy_df.index.names[0]]
-    x = xy_df.reset_index(level=0, drop=True).fillna(0)
+    x = xy_df.reset_index(level=0, drop=True)
+    if fillna:
+        x = x.fillna(0)
     return x, y
 
 
@@ -83,24 +88,32 @@ def to_numeric(x):
     return pd.to_numeric(x)
 
 
-def get_oligos_blood_with_outcome(data_type: str = 'fold', subgroup: str = 'is_bac_flagella',
+def get_oligos_blood_with_outcome(data_type: str = 'fold', subgroup: str = 'is_bac_flagella', imputed=True,
                                   **impute_kwargs) -> pd.DataFrame:
     oligos_and_outcome = get_oligos_metadata_subgroup_with_outcome(data_type=data_type, subgroup=subgroup)
-    meta = get_imputed_individuals_metadata(**impute_kwargs)
+    if imputed:
+        meta = get_imputed_individuals_metadata(**impute_kwargs)
+    else:
+        meta = get_individuals_metadata_df().drop(columns='catrecruit_Binary')
     ret = pd.merge(oligos_and_outcome, meta, right_index=True, left_on='sample_id', how='inner')
     return ret
 
 
-def get_data_with_outcome(data_type: str = 'fold', subgroup: str = 'all', with_bloodtests: bool = False, with_oligos:bool=True,
+def get_data_with_outcome(data_type: str = 'fold', subgroup: str = 'all', with_bloodtests: bool = False,
+                          with_oligos: bool = True, imputed=True,
                           **impute_kwargs):
     if with_oligos:
         if with_bloodtests:
-            return get_oligos_blood_with_outcome(data_type=data_type, subgroup=subgroup, **impute_kwargs)
+            return get_oligos_blood_with_outcome(data_type=data_type, subgroup=subgroup, imputed=imputed,
+                                                 **impute_kwargs)
         else:
             return get_oligos_metadata_subgroup_with_outcome(data_type=data_type, subgroup=subgroup)
     elif with_bloodtests:
-        ret = get_imputed_individuals_metadata()
+        if imputed:
+            ret = get_imputed_individuals_metadata()
+        else:
+            ret = get_individuals_metadata_df().drop(columns='catrecruit_Binary')
         outcome = get_outcome()
-        return pd.merge(ret, outcome, left_index=True, right_index=True).set_index('is_CFS', append=True).reorder_levels([1, 0])
+        return pd.merge(ret, outcome, left_index=True, right_index=True).set_index('is_CFS',
+                                                                                   append=True).reorder_levels([1, 0])
     return pd.DataFrame()
-

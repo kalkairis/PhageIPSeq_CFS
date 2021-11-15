@@ -8,12 +8,13 @@ import pandas as pd
 import seaborn as sns
 import shap
 from scipy import stats
+from sklearn.ensemble import GradientBoostingClassifier
 
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
 from PhageIPSeq_CFS.Predictions.classifiers import create_auc_with_bootstrap_figure, get_x_y, \
     compute_auc_from_prediction_results
-from PhageIPSeq_CFS.config import visualizations_dir, predictor_class, predictor_kwargs, oligo_order, \
+from PhageIPSeq_CFS.config import visualizations_dir, predictor_kwargs, oligo_order, \
     oligo_families_colors
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata
 
@@ -54,7 +55,9 @@ def metadata_distribution_sub_figure(spec, fig):
 
 
 if __name__ == "__main__":
-    num_auc_repeats = 1000
+    predictor_kwargs = {"n_estimators": 2000, "learning_rate": .01, "max_depth": 6, "max_features": 1,
+                    "min_samples_leaf": 10}
+    num_auc_repeats = 100
     figures_dir = os.path.join(visualizations_dir, 'figure_4')
     os.makedirs(figures_dir, exist_ok=True)
     fig = plt.figure(figsize=(25, 10))
@@ -75,7 +78,7 @@ if __name__ == "__main__":
     blood_tests_only_color = sns.color_palette()[len(oligo_order) + 1]
     blood_test_auc_std, blood_test_auc = create_auc_with_bootstrap_figure(
         num_confidence_intervals_repeats=num_auc_repeats, x=x, y=y,
-        predictor_class=predictor_class, ax=ax, color=blood_tests_only_color,
+        predictor_class=GradientBoostingClassifier, ax=ax, color=blood_tests_only_color,
         prediction_results=prediction_results, **predictor_kwargs)
     ax.set_title('Blood tests alone')
     tmp = ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_uppercase[1],
@@ -92,7 +95,7 @@ if __name__ == "__main__":
     best_flagella_params['bottom_threshold'] = best_flagella_params['bottom_threshold'] / 100.0
     x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, **best_flagella_params)
     prediction_results = pd.read_csv(os.path.join(figures_dir, 'blood_tests_with_flagella_results.csv'), index_col=0)
-    create_auc_with_bootstrap_figure(num_auc_repeats, x, y, predictor_class,
+    create_auc_with_bootstrap_figure(num_auc_repeats, x, y, GradientBoostingClassifier,
                                      color=oligo_families_colors['bac flagella'],
                                      ax=ax, prediction_results=prediction_results, **predictor_kwargs)
     ax.set_title('Blood tests and flagella')
@@ -121,18 +124,22 @@ if __name__ == "__main__":
     ax.errorbar(**params)
     ax.set_ylim(bottom=0.7)
     ax.set_title('Prediction results by subgroup')
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    ax.legend(
+        handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
     ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
 
     # Add shap beeswarm of flagella model
     ax = fig.add_subplot(internal_spec_1[1])
     x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, **best_flagella_params)
-    predictor = predictor_class(**predictor_kwargs)
+    predictor = GradientBoostingClassifier(**predictor_kwargs)
     model = predictor.fit(x, y)
     explainer = shap.TreeExplainer(model, x)
     shap_values_ebm = explainer(x)
-    shap.plots.beeswarm(shap_values_ebm, max_display=14, show=False, plot_size=None)
-    ax.set_yticklabels([plt.Text(*ax.get_yticklabels()[0].get_position(), 'Other')] + list(
+    shap.plots.beeswarm(shap_values_ebm, max_display=15, show=False, plot_size=None, sum_bottom_features=False)
+    ax.set_yticklabels(list(
         map(lambda ticklabel: plt.Text(*ticklabel.get_position(), get_blood_test_name(ticklabel.get_text())),
-            ax.get_yticklabels()[1:])))
+            ax.get_yticklabels())))
     ax.text(-0.5, 1.1, string.ascii_uppercase[4], transform=ax.transAxes, size=20, weight='bold')
+    # plt.show()
     plt.savefig(os.path.join(figures_dir, 'figure_4.png'))

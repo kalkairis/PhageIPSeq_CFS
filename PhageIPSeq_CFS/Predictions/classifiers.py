@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import shap
-from LabQueue.qp import qp, fakeqp
+from LabQueue.qp import qp
+from LabQueue.qp import fakeqp
+# from LabQueue.qp import fakeqp as qp
 from LabUtils.addloglevels import sethandlers
 from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingClassifier
@@ -14,9 +16,9 @@ from sklearn.metrics import auc
 from sklearn.model_selection import train_test_split
 
 from PhageIPSeq_CFS.config import visualizations_dir, logs_path, oligo_families, RANDOM_STATE, num_auc_repeats, \
-    predictor_class, predictor_kwargs
+    predictors_info
 from PhageIPSeq_CFS.helpers import split_xy_df_and_filter_by_threshold, \
-    get_data_with_outcome, get_outcome, get_imputed_individuals_metadata
+    get_data_with_outcome, get_outcome, get_imputed_individuals_metadata, get_individuals_metadata_df
 
 
 def run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predictor_kwargs):
@@ -80,7 +82,7 @@ def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, pre
     ax.plot(fprs, tprs, color=color, label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
     ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
             label='Chance', alpha=.8)
-    plt.legend()
+    ax.legend()
     return auc_std, auc_value
 
 
@@ -105,18 +107,20 @@ def compute_auc_from_prediction_results(prediction_results, return_fprs_tprs=Fal
         return auc_value
 
 
-def get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests):
+def get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests, imputed=False):
     x, y = split_xy_df_and_filter_by_threshold(
-        get_data_with_outcome(data_type=data_type, subgroup=oligos_subgroup, with_bloodtests=with_bloodtests),
-        bottom_threshold=bottom_threshold)
+        get_data_with_outcome(data_type=data_type, subgroup=oligos_subgroup, with_bloodtests=with_bloodtests,
+                              imputed=imputed),
+        bottom_threshold=bottom_threshold, fillna=imputed)
     return x, y
 
 
 def get_prediction_parameters(data_type, threshold_percent, figures_dir, oligos_subgroup='all',
-                              num_confidence_intervals_repeats=100, predictor_class=GradientBoostingClassifier,
-                              with_bloodtests=False, **predictor_kwargs):
+                              num_confidence_intervals_repeats=100,
+                              with_bloodtests=False, predictor_class=None, **predictor_kwargs):
     bottom_threshold = threshold_percent / 100
-    x, y = get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests)
+    x, y = get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests,
+                   imputed='xgboost' not in str(predictor_class))
     output_dir = os.path.join(figures_dir, data_type, str(bottom_threshold))
     return get_prediction_results(output_dir, x, y, num_confidence_intervals_repeats=num_confidence_intervals_repeats,
                                   predictor_class=predictor_class, **predictor_kwargs)
@@ -129,7 +133,8 @@ def get_top_prediction_shap_values(data_type, bottom_threshold, figures_dir, oli
     out_dir = os.path.join(figures_dir, 'best_run_results')
     os.makedirs(out_dir, exist_ok=True)
     bottom_threshold = bottom_threshold / 100
-    x, y = get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests)
+    x, y = get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests,
+                   imputed='xgboost' not in str(predictor_class))
     predictor = predictor_class(*predictor_args, **predictor_kwargs)
     model = predictor.fit(x, y)
 
@@ -153,18 +158,22 @@ def get_top_prediction_shap_values(data_type, bottom_threshold, figures_dir, oli
     plt.close()
 
 
-def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_repeats_in_auc_ci, predictore_class,
+def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_repeats_in_auc_ci, predictor_class,
                                            with_bloodtests, **predictor_kwargs):
     curr_figures_dir = os.path.join(figures_dir, oligos_subgroup)
-    with qp(f"preds") as q:
+    with qp(f"cfs_p") as q:
         q.startpermanentrun()
         waiton = {}
         for data_type in ['fold', 'exist']:
             for threshold_percent in [0, 1, 5, 10, 20, 50, 95, 100]:
+                """
+                data_type, threshold_percent, figures_dir, oligos_subgroup='all',
+                              num_confidence_intervals_repeats=100,
+                              with_bloodtests=False, predictor_class=None"""
                 waiton[(data_type, threshold_percent)] = q.method(get_prediction_parameters,
                                                                   (data_type, threshold_percent, curr_figures_dir,
                                                                    oligos_subgroup, num_repeats_in_auc_ci,
-                                                                   predictore_class, with_bloodtests),
+                                                                   with_bloodtests, predictor_class),
                                                                   kwargs=predictor_kwargs)
         all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
     all_results = pd.DataFrame(all_results).transpose().reset_index().rename(
@@ -173,7 +182,7 @@ def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_rep
     all_results['oligos_subgroup'] = oligos_subgroup
     best_params = all_results.iloc[0][
         ['data_type', 'bottom_threshold']].to_dict()
-    get_top_prediction_shap_values(**best_params, predictor_class=predictore_class, figures_dir=curr_figures_dir,
+    get_top_prediction_shap_values(**best_params, predictor_class=predictor_class, figures_dir=curr_figures_dir,
                                    with_bloodtests=with_bloodtests,
                                    oligos_subgroup=oligos_subgroup, **predictor_kwargs)
     return all_results
@@ -182,37 +191,44 @@ def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_rep
 if __name__ == "__main__":
     sethandlers()
     os.chdir(logs_path)
-    for with_bloodtests in [True, False]:
-        if with_bloodtests:
-            continue
-        for with_oligos in [True, False]:
-            if with_oligos == False and with_bloodtests == False:
-                continue
-            figures_dir = os.path.join(visualizations_dir,
-                                       ''.join(['Predictions', '_with_bloodtests' if with_bloodtests else '',
-                                                '_with_oligos' if with_oligos else '']))
-            if with_oligos:
-                all_results = {}
-                with fakeqp(f"wpreds", max_u=10) as q:
-                    q.startpermanentrun()
-                    waiton = {}
-                    for oligos_subgroup in oligo_families + ['all']:
-                        waiton[oligos_subgroup] = q.method(predict_and_run_shap_on_oligo_subgroup,
-                                                           (oligos_subgroup, figures_dir, num_auc_repeats,
-                                                            predictor_class,
-                                                            with_bloodtests), kwargs=predictor_kwargs)
-                    all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
-                all_results = (pd
-                               .concat(list(all_results.values()))
-                               .set_index(['data_type', 'bottom_threshold', 'oligos_subgroup'])
-                               .unstack('oligos_subgroup')
-                               .swaplevel(axis='columns')
-                               .sort_index(axis='columns'))
-                all_results.to_csv(
-                    os.path.join(figures_dir, 'best_results_summary.csv'))
-            else:
-                x = get_imputed_individuals_metadata()
-                y = get_outcome()
-                ret = get_prediction_results(figures_dir, x, y, num_confidence_intervals_repeats=num_auc_repeats,
-                                             predictor_class=predictor_class, **predictor_kwargs)
-                pd.Series(ret).to_csv(os.path.join(figures_dir, 'best_results_summary.csv'))
+    for predictor_type, predictor_info in predictors_info.items():
+        predictor_class = predictor_info['predictor_class']
+        predictor_kwargs = predictor_info['predictor_kwargs']
+        for with_bloodtests in [True, False]:
+            for with_oligos in [True, False]:
+                if (not with_oligos) and (not with_bloodtests):
+                    continue
+                figures_dir = os.path.join(visualizations_dir, predictor_type,
+                                           ''.join(['Predictions', '_with_bloodtests' if with_bloodtests else '',
+                                                    '_with_oligos' if with_oligos else '']))
+                if with_oligos:
+                    all_results = {}
+                    with qp(f"wpreds", max_u=10) as q:
+                        q.startpermanentrun()
+                        waiton = {}
+                        for oligos_subgroup in oligo_families + ['all']:
+                            waiton[oligos_subgroup] = q.method(predict_and_run_shap_on_oligo_subgroup,
+                                                               (oligos_subgroup, figures_dir, num_auc_repeats,
+                                                                predictor_class,
+                                                                with_bloodtests), kwargs=predictor_kwargs)
+                        all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
+                    all_results = (pd
+                                   .concat(list(all_results.values()))
+                                   .set_index(['data_type', 'bottom_threshold', 'oligos_subgroup'])
+                                   .unstack('oligos_subgroup')
+                                   .swaplevel(axis='columns')
+                                   .sort_index(axis='columns'))
+                    all_results.to_csv(
+                        os.path.join(figures_dir, 'best_results_summary.csv'))
+                else:
+                    if 'xgboost' in str(predictor_class):
+                        x = get_individuals_metadata_df().drop(columns='catrecruit_Binary')
+                    else:
+                        x = get_imputed_individuals_metadata()
+                    y = get_outcome()
+                    ret = get_prediction_results(figures_dir, x, y, num_confidence_intervals_repeats=num_auc_repeats,
+                                                 predictor_class=predictor_class, **predictor_kwargs)
+                    pd.Series(ret).to_csv(os.path.join(figures_dir, 'best_results_summary.csv'))
+                    # TODO:  check shap of oligos with bloodtests
+                    # Figure 3: with Gradient boosting and add the same with XGB for supplement
+                    # Figure 4: show with XGB data and also show with Gradient boosting on supplements
