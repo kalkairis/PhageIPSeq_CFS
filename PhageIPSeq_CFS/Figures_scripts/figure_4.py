@@ -7,16 +7,15 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import shap
-from scipy import stats
-from sklearn.ensemble import GradientBoostingClassifier
-
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
 from PhageIPSeq_CFS.Predictions.classifiers import create_auc_with_bootstrap_figure, get_x_y, \
     compute_auc_from_prediction_results
-from PhageIPSeq_CFS.config import visualizations_dir, predictor_kwargs, oligo_order, \
-    oligo_families_colors
+from PhageIPSeq_CFS.config import visualizations_dir, oligo_order, \
+    oligo_families_colors, predictors_info
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata
+from scipy import stats
+from sklearn.ensemble import GradientBoostingClassifier
 
 
 def metadata_distribution_sub_figure(spec, fig):
@@ -55,8 +54,7 @@ def metadata_distribution_sub_figure(spec, fig):
 
 
 if __name__ == "__main__":
-    predictor_kwargs = {"n_estimators": 2000, "learning_rate": .01, "max_depth": 6, "max_features": 1,
-                    "min_samples_leaf": 10}
+    predictor_kwargs = predictors_info['GBR']['predictor_kwargs']
     num_auc_repeats = 100
     figures_dir = os.path.join(visualizations_dir, 'figure_4')
     os.makedirs(figures_dir, exist_ok=True)
@@ -93,7 +91,7 @@ if __name__ == "__main__":
         df.stack(level=0).reset_index().set_index('oligos_subgroup').loc['is_bac_flagella'].reset_index(
             drop=True).sort_values(by='auc', ascending=False)[['data_type', 'bottom_threshold']].iloc[0].to_dict()
     best_flagella_params['bottom_threshold'] = best_flagella_params['bottom_threshold'] / 100.0
-    x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, **best_flagella_params)
+    x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, imputed=True, **best_flagella_params)
     prediction_results = pd.read_csv(os.path.join(figures_dir, 'blood_tests_with_flagella_results.csv'), index_col=0)
     create_auc_with_bootstrap_figure(num_auc_repeats, x, y, GradientBoostingClassifier,
                                      color=oligo_families_colors['bac flagella'],
@@ -131,7 +129,7 @@ if __name__ == "__main__":
 
     # Add shap beeswarm of flagella model
     ax = fig.add_subplot(internal_spec_1[1])
-    x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, **best_flagella_params)
+    x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, imputed=True, **best_flagella_params)
     predictor = GradientBoostingClassifier(**predictor_kwargs)
     model = predictor.fit(x, y)
     explainer = shap.TreeExplainer(model, x)
