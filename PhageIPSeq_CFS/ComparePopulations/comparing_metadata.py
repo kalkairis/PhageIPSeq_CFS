@@ -24,13 +24,16 @@ def metadata_distribution_figure(metadata, external_spec):
 
 def metadata_distribution_figure_single_blood_test(ax, blood_test, metadata):
     sns.boxplot(data=metadata, x='is_CFS', y=blood_test, ax=ax)
+    ax.set(xlabel='', ylabel='', xticklabels=[], title=blood_test)
     if blood_test in ['creat', 'eGFR', 'TBil', 'albumin', 'cpk', 't4', 'RF', 'TTGIgA']:
         add_stat_annotation(ax,
                             data=metadata,
                             x='is_CFS', y=blood_test,
                             test='Mann-Whitney', text_format='star', comparisons_correction='bonferroni',
                             box_pairs=[('Sick', 'Healthy')], loc='inside', verbose=False)
-        ax.set_facecolor('xkcd:mint green')
+        ax.set(xlabel='', ylabel='', xticklabels=[], title=blood_test)
+        plt.setp(ax.title, bbox={'facecolor':'xkcd:mint green', 'alpha': 0.5, 'pad': 2, 'edgecolor': 'xkcd:mint green'})
+        # ax.set_facecolor('xkcd:mint green')
     # else:
     #     ax.set_facecolor('xkcd:salmon')
     ax.set(xlabel='', ylabel='', xticklabels=[], title=blood_test)
