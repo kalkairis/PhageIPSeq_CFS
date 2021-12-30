@@ -128,7 +128,7 @@ def create_figure_1(overwrite=True):
                         pvalues=list(passed_pvals.values()), perform_stat_test=False
                         )
     plt.setp(ax.get_xticklabels(), rotation=45)
-    ax.text(-0.1, 1.1, string.ascii_uppercase[5], transform=ax.transAxes, size=20, weight='bold')
+    ax.text(-0.1, 1.1, string.ascii_uppercase[4], transform=ax.transAxes, size=20, weight='bold')
 
     # sub-figure f
     ax = fig.add_subplot(spec[1, 2])
@@ -145,7 +145,7 @@ def create_figure_1(overwrite=True):
     table = ax.table(cellText=rank_sum_res.astype(str).values, rowLabels=rank_sum_res.index.values,
                      colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.3, 0.3, 0.3])
     table.scale(1, 2)
-    ax.text(-0.1, 1.1, string.ascii_uppercase[6], transform=ax.transAxes, size=20, weight='bold')
+    ax.text(-0.1, 1.1, string.ascii_uppercase[5], transform=ax.transAxes, size=20, weight='bold')
 
     if overwrite:
         plt.savefig(os.path.join(figures_dir, 'figure_1.png'))
