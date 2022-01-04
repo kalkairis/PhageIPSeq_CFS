@@ -161,7 +161,7 @@ def create_figure_1(overwrite=True):
     ax.text(-0.1, 1.1, string.ascii_uppercase[5], transform=ax.transAxes, size=20, weight='bold')
 
     if overwrite:
-        plt.savefig(os.path.join(figures_dir, 'figure_1' + ('_with_table' if with_table else '') + '.png'))
+        plt.savefig(os.path.join(figures_dir, 'figure_1.png'))
     else:
         plt.show()
 
