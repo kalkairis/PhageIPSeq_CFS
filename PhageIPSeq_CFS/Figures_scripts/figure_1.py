@@ -14,7 +14,7 @@ from PhageIPSeq_CFS.helpers import get_data_with_outcome, get_oligos_metadata, s
     get_individuals_metadata_df
 
 
-def create_figure_1(with_table=False, overwrite=True):
+def create_figure_1(overwrite=True):
     figures_dir = os.path.join(visualizations_dir, 'figure_1')
     os.makedirs(figures_dir, exist_ok=True)
     fig = plt.figure(figsize=(20, 10))
@@ -32,63 +32,9 @@ def create_figure_1(with_table=False, overwrite=True):
     ax.text(-0.1, 1.1, string.ascii_uppercase[1], transform=ax.transAxes, size=20, weight='bold')
     ax.set_axis_off()
     internal_spec = spec[0, 1].subgridspec(2, 1, height_ratios=[1, 2])
+    # adding empty space for table on cohort info
     ax = fig.add_subplot(internal_spec[0])
     ax.set_axis_off()
-    if with_table:
-        summary_table = cohort_info.copy()
-        summary_table['outcome'] = summary_table['catrecruit_Binary'].apply(
-            lambda x: 'CFS' if bool(x) else 'Healthy controls')
-        summary_groups = summary_table.groupby('outcome')
-        total_number = summary_groups.count().iloc[:, 0].to_frame()
-        total_number.columns = ['Total number']
-        total_number = total_number.stack()
-        total_number = total_number.to_frame().reset_index(-1).rename(columns={'level_1': 'level_2'})
-        sex_summary = summary_table.groupby(['outcome', 'Sex']).count().iloc[:, 0].to_frame()
-        sex_summary.columns = ['Sex']
-        sex_summary = sex_summary.stack()
-        sex_summary = pd.DataFrame({k: {'Male/Female': f'{v["Male"]}/{v["Female"]}'} for k, v in
-                                    sex_summary.reset_index(-1).drop(columns='level_2')[0].unstack(
-                                        -1).T.to_dict().items()}).T.stack()
-        sex_summary = sex_summary.to_frame().reset_index(-1)
-        sex_summary['level_2'] = 'Sex'
-        age_range_summary = summary_groups['agegroup_Average'].agg([min, max]).apply(
-            lambda row: f"{row['min']} to {row['max']}", axis=1)
-        age_averages = summary_groups['agegroup_Average'].agg(['mean', 'std']).round(1).apply(
-            lambda row: f"{row['mean']} +- {row['std']}", axis=1)
-        ages = pd.DataFrame({'Range': age_range_summary, r'Average +- SD': age_averages}).stack().to_frame()
-        ages['level_2'] = 'Age'
-        ages = ages.reset_index(-1)
-        summary_table = pd.concat([total_number, sex_summary, ages]).sort_index().reset_index()
-        table = ax.table(cellText=summary_table[[0]].astype(str).values,
-                         loc='center right', colWidths=[0.3], )
-        w = table.get_celld()[(0, 0)].get_width()
-        h = table.get_celld()[(0, 0)].get_height()
-        for i in range(2):
-            cell_1 = table.add_cell((i * 4) + 0, -1, w, h)
-            cell_1.visible_edges = "TBR"
-            cell_2 = table.add_cell((i * 4) + 0, -2, w, h)
-            cell_2.get_text().set_text('Total number')
-            cell_2.visible_edges = "TLB"
-            cell = table.add_cell((i * 4) + 1, -1, w, h)
-            cell.get_text().set_text('Male/Female')
-            cell = table.add_cell((i * 4) + 1, -2, w, h)
-            cell.get_text().set_text('Sex')
-            cell = table.add_cell((i * 4) + 2, -1, w, h)
-            cell.get_text().set_text('Range')
-            cell = table.add_cell((i * 4) + 3, -1, w, h)
-            cell.get_text().set_text(r"Average $\pm$ SD")
-            cell_1 = table.add_cell((i * 4) + 2, -2, w, h)
-            cell_1.visible_edges = "TRL"
-            cell_1.get_text().set_text('Age')
-            cell_2 = table.add_cell((i * 4) + 3, -2, w, h)
-            cell_2.visible_edges = "BRL"
-            cells = [table.add_cell((i * 4) + j, -3, w / 4, h) for j in range(4)]
-            cells[0].visible_edges = 'LTR'
-            cells[1].visible_edges = 'LR'
-            cells[2].visible_edges = 'LR'
-            cells[3].visible_edges = 'BLR'
-        ax.annotate('CFS', xy=(0.03, 0.7), rotation=90)
-        ax.annotate('Healthy', xy=(0.03, 0.005), rotation=90)
 
     internal_figure_spec = internal_spec[1].subgridspec(2, 2, wspace=0, hspace=0.1, height_ratios=[5, 1])
     ax = fig.add_subplot(internal_figure_spec[0, 0])
@@ -222,5 +168,4 @@ def create_figure_1(with_table=False, overwrite=True):
 
 if __name__ == "__main__":
     overwrite = False
-    create_figure_1(with_table=True, overwrite=overwrite)
-    create_figure_1(with_table=False, overwrite=overwrite)
+    create_figure_1(overwrite=overwrite)
