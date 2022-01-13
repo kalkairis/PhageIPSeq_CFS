@@ -36,8 +36,8 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(internal_spec[0])
     ax.set_axis_off()
 
-    internal_figure_spec = internal_spec[1].subgridspec(2, 2, wspace=0, hspace=0.1, height_ratios=[5, 1])
-    ax = fig.add_subplot(internal_figure_spec[0, 0])
+    internal_figure_spec = internal_spec[1].subgridspec(2, 2, wspace=0, hspace=0, height_ratios=[1, 3])
+    ax = fig.add_subplot(internal_figure_spec[1, 0])
     sns.histplot(data=cohort_info[cohort_info['catrecruit_Binary'].eq(1)],
                  y='agegroup_Average', hue='Sex',
                  palette=[sns.color_palette("colorblind")[-4], sns.color_palette("colorblind")[-1]],
@@ -46,7 +46,7 @@ def create_figure_1(overwrite=True):
     ax.set_xlabel('CFS')
     ax.set_xlim(*list(ax.get_xlim())[::-1])
     ax.set_ylim(ax.get_ylim()[0], ax.get_ylim()[1])
-    ax = fig.add_subplot(internal_figure_spec[0, 1], sharey=ax)
+    ax = fig.add_subplot(internal_figure_spec[1, 1], sharey=ax)
     ax.get_yaxis().set_visible(False)
     ax = sns.histplot(data=cohort_info[cohort_info['catrecruit_Binary'].eq(0)], y='agegroup_Average',
                       bins=4,
@@ -56,7 +56,7 @@ def create_figure_1(overwrite=True):
                       ax=ax)
 
     ax.set_xlabel('Healthy')
-    ax = fig.add_subplot(internal_figure_spec[1, :])
+    ax = fig.add_subplot(internal_figure_spec[0, :])
     ax.set_axis_off()
     ax.legend(
         handles=[mpatches.Patch(facecolor=sns.color_palette("colorblind")[-4], label='Male', edgecolor='black'),
@@ -167,5 +167,5 @@ def create_figure_1(overwrite=True):
 
 
 if __name__ == "__main__":
-    overwrite = False
+    overwrite = True
     create_figure_1(overwrite=overwrite)

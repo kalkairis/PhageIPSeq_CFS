@@ -47,6 +47,8 @@ def get_blood_test_name(blood_name_original):
         ret = 'Sex'
     elif ret == 'agegroup Average':
         ret = 'Age group'
+    if ret.startswith('agilent'):
+        ret = ' '.join(ret.split(' ')[1:])
     return ret
 
 def get_metadata_comparison_sub_figure(spec):

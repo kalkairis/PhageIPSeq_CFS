@@ -5,10 +5,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import shap
-from LabQueue.qp import qp
-from LabQueue.qp import fakeqp
-# from LabQueue.qp import fakeqp as qp
-from LabUtils.addloglevels import sethandlers
 from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import RidgeClassifier
@@ -161,21 +157,19 @@ def get_top_prediction_shap_values(data_type, bottom_threshold, figures_dir, oli
 def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_repeats_in_auc_ci, predictor_class,
                                            with_bloodtests, **predictor_kwargs):
     curr_figures_dir = os.path.join(figures_dir, oligos_subgroup)
-    with qp(f"cfs_p") as q:
-        q.startpermanentrun()
-        waiton = {}
-        for data_type in ['fold', 'exist']:
-            for threshold_percent in [0, 1, 5, 10, 20, 50, 95, 100]:
-                """
-                data_type, threshold_percent, figures_dir, oligos_subgroup='all',
-                              num_confidence_intervals_repeats=100,
-                              with_bloodtests=False, predictor_class=None"""
-                waiton[(data_type, threshold_percent)] = q.method(get_prediction_parameters,
-                                                                  (data_type, threshold_percent, curr_figures_dir,
-                                                                   oligos_subgroup, num_repeats_in_auc_ci,
-                                                                   with_bloodtests, predictor_class),
-                                                                  kwargs=predictor_kwargs)
-        all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
+    all_results = {}
+    for data_type in ['fold', 'exist']:
+        for threshold_percent in [0, 1, 5, 10, 20, 50, 95, 100]:
+            """
+            data_type, threshold_percent, figures_dir, oligos_subgroup='all',
+                          num_confidence_intervals_repeats=100,
+                          with_bloodtests=False, predictor_class=None"""
+            all_results[(data_type, threshold_percent)] = get_prediction_parameters(data_type, threshold_percent,
+                                                                                    curr_figures_dir,
+                                                                                    oligos_subgroup,
+                                                                                    num_repeats_in_auc_ci,
+                                                                                    with_bloodtests, predictor_class,
+                                                                                    **predictor_kwargs)
     all_results = pd.DataFrame(all_results).transpose().reset_index().rename(
         columns={'level_0': 'data_type', 'level_1': 'bottom_threshold'}).sort_values(by='auc', ascending=False)
     all_results.to_csv(os.path.join(curr_figures_dir, 'results_summary.csv'))
@@ -189,7 +183,6 @@ def predict_and_run_shap_on_oligo_subgroup(oligos_subgroup, figures_dir, num_rep
 
 
 if __name__ == "__main__":
-    sethandlers()
     os.chdir(logs_path)
     for predictor_type, predictor_info in predictors_info.items():
         predictor_class = predictor_info['predictor_class']
@@ -203,15 +196,13 @@ if __name__ == "__main__":
                                                     '_with_oligos' if with_oligos else '']))
                 if with_oligos:
                     all_results = {}
-                    with qp(f"wpreds", max_u=10) as q:
-                        q.startpermanentrun()
-                        waiton = {}
-                        for oligos_subgroup in oligo_families + ['all']:
-                            waiton[oligos_subgroup] = q.method(predict_and_run_shap_on_oligo_subgroup,
-                                                               (oligos_subgroup, figures_dir, num_auc_repeats,
-                                                                predictor_class,
-                                                                with_bloodtests), kwargs=predictor_kwargs)
-                        all_results = {k: q.waitforresult(v) for k, v in waiton.items()}
+                    for oligos_subgroup in oligo_families + ['all']:
+                        all_results[oligos_subgroup] = predict_and_run_shap_on_oligo_subgroup(oligos_subgroup,
+                                                                                              figures_dir,
+                                                                                              num_auc_repeats,
+                                                                                              predictor_class,
+                                                                                              with_bloodtests,
+                                                                                              **predictor_kwargs)
                     all_results = (pd
                                    .concat(list(all_results.values()))
                                    .set_index(['data_type', 'bottom_threshold', 'oligos_subgroup'])
@@ -229,6 +220,3 @@ if __name__ == "__main__":
                     ret = get_prediction_results(figures_dir, x, y, num_confidence_intervals_repeats=num_auc_repeats,
                                                  predictor_class=predictor_class, **predictor_kwargs)
                     pd.Series(ret).to_csv(os.path.join(figures_dir, 'best_results_summary.csv'))
-                    # TODO:  check shap of oligos with bloodtests
-                    # Figure 3: with Gradient boosting and add the same with XGB for supplement
-                    # Figure 4: show with XGB data and also show with Gradient boosting on supplements
