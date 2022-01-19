@@ -80,7 +80,7 @@ if __name__ == "__main__":
     for estimator_name, estimator_info in predictors_info.items():
         estimator = estimator_info['predictor_class'](**estimator_info['predictor_kwargs'])
         estimator_res = add_level_for_predictions(level_range=[True, False], level_name='with_oligos',
-                                                  # level_function=run_predictions_on_blood_tests, estimator=estimator,
+                                                  level_function=run_predictions_on_blood_tests, estimator=estimator,
                                                   imputed=False)
         estimator_res = estimator_res[0]
         res[estimator_name] = estimator_res

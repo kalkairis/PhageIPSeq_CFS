@@ -12,11 +12,10 @@ from scipy import stats
 
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
-from PhageIPSeq_CFS.Predictions.classifiers import create_auc_with_bootstrap_figure, get_x_y, \
-    compute_auc_from_prediction_results
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_order, \
     oligo_families_colors, predictors_info, predictions_outcome_dir
-from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata
+from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata, \
+    compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure
 
 
 def metadata_distribution_sub_figure(spec, fig):
@@ -119,9 +118,6 @@ if __name__ == "__main__":
         ax = fig.add_subplot(internal_spec[2])
         ax.axhline(y=blood_test_auc, color=blood_tests_only_color, linestyle='-')
         # Adding CI of blood tests only
-        # ax.axhspan(ymin=blood_test_auc - blood_test_auc_std * stats.norm.ppf(0.95),
-        #            ymax=blood_test_auc + blood_test_auc_std * stats.norm.ppf(0.95),
-        #            color=blood_tests_only_color, alpha=0.4)
         best_auc_df = df.stack(level=0).reset_index().sort_values(by='auc', ascending=False).groupby(
             'subgroup').first().reset_index()
         best_auc_df['subgroup'] = best_auc_df['subgroup'].apply(

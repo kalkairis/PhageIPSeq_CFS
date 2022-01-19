@@ -3,9 +3,13 @@ import os
 from typing import Tuple
 
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.impute import SimpleImputer
 
-from PhageIPSeq_CFS.config import repository_data_dir
+from PhageIPSeq_CFS.config import repository_data_dir, RANDOM_STATE
+from sklearn.linear_model import RidgeClassifier
+from sklearn.metrics import auc
+from sklearn.model_selection import train_test_split
 
 
 def get_individuals_metadata_df(threshold_for_removal = 10):
@@ -118,3 +122,73 @@ def get_data_with_outcome(data_type: str = 'fold', subgroup: str = 'all', with_b
         return pd.merge(ret, outcome, left_index=True, right_index=True).set_index('is_CFS',
                                                                                    append=True).reorder_levels([1, 0])
     return pd.DataFrame()
+
+
+def compute_auc_from_prediction_results(prediction_results, return_fprs_tprs=False):
+    # create roc curve
+    prediction_results = prediction_results.sort_values(by='predict_proba', ascending=False)
+    tpr = [0]
+    fpr = [0]
+    for i in range(prediction_results.shape[0]):
+        if prediction_results.iloc[i]['y'] == 1:
+            tpr.append(tpr[-1] + 1)
+            fpr.append(fpr[-1])
+        else:
+            tpr.append(tpr[-1])
+            fpr.append(fpr[-1] + 1)
+    tprs = np.array(tpr) / prediction_results.y.sum()
+    fprs = np.array(fpr) / prediction_results.y.eq(0).sum()
+    auc_value = auc(fprs, tprs)
+    if return_fprs_tprs:
+        return auc_value, fprs, tprs
+    else:
+        return auc_value
+
+
+def get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests, imputed=False):
+    x, y = split_xy_df_and_filter_by_threshold(
+        get_data_with_outcome(data_type=data_type, subgroup=oligos_subgroup, with_bloodtests=with_bloodtests,
+                              imputed=imputed),
+        bottom_threshold=bottom_threshold, fillna=imputed)
+    return x, y
+
+
+def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, predictor_class, color='blue', ax=None,
+                                     prediction_results=None, *predictor_args,
+                                     **predictor_kwargs):
+    if prediction_results is None:
+        prediction_results = run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predictor_kwargs)
+    auc_value, fprs, tprs = compute_auc_from_prediction_results(prediction_results, return_fprs_tprs=True)
+    auc_confidence_interval = []
+    if ax is None:
+        fig, ax = plt.subplots()
+    for _ in range(num_confidence_intervals_repeats):
+        round_auc, round_fprs, round_tprs = compute_auc_from_prediction_results(train_test_split(prediction_results)[0],
+                                                                                True)
+        auc_confidence_interval.append(round_auc)
+        ax.plot(round_fprs, round_tprs, color='grey', alpha=0.05)
+    auc_std = np.std(auc_confidence_interval)
+    ax.plot(fprs, tprs, color=color, label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+            label='Chance', alpha=.8)
+    ax.legend()
+    return auc_std, auc_value
+
+
+def run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predictor_kwargs):
+    ret = {}
+    if x.empty:
+        return dict()
+    for sample in y.index.values:
+        train_x = x.drop(index=sample)
+        train_y = y.drop(index=sample)
+        predictor_kwargs['random_state'] = RANDOM_STATE
+        predictor = predictor_class(*predictor_args, **predictor_kwargs)
+        predictor.fit(train_x, train_y.values.ravel())
+        y_hat = predictor.predict(x.loc[sample].values.reshape(1, -1))[0]
+        if isinstance(predictor, RidgeClassifier):
+            predict_proba = predictor._predict_proba_lr(x.loc[sample].values.reshape(1, -1))[0][1]
+        else:
+            predict_proba = predictor.predict_proba(x.loc[sample].values.reshape(1, -1))[0][1]
+        ret[sample] = {'y': y.loc[sample], 'y_hat': y_hat, 'predict_proba': predict_proba}
+    return pd.DataFrame(ret).transpose()
