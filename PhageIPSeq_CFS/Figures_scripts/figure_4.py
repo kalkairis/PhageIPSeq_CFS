@@ -8,14 +8,16 @@ import pandas as pd
 import seaborn as sns
 import shap
 from scipy import stats
-# from sklearn.ensemble import GradientBoostingClassifier
 
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_order, \
     oligo_families_colors, predictors_info, predictions_outcome_dir
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata, \
-    compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure
+    compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure, get_oligos_metadata
+
+
+# from sklearn.ensemble import GradientBoostingClassifier
 
 
 def metadata_distribution_sub_figure(spec, fig):
@@ -100,11 +102,12 @@ if __name__ == "__main__":
         del best_flagella_params['threshold_percent']
         x, y = get_x_y(oligos_subgroup='is_bac_flagella', with_bloodtests=True, imputed=True, **best_flagella_params)
         prediction_results = pd.read_csv(os.path.join(predictions_outcome_dir, f"{estimator_name}_predictions.csv"))
-        prediction_results = prediction_results[prediction_results['with_bloodtests'] & prediction_results['with_oligos']]
+        prediction_results = prediction_results[
+            prediction_results['with_bloodtests'] & prediction_results['with_oligos']]
         prediction_results = prediction_results[prediction_results['subgroup'].eq('is_bac_flagella')]
         prediction_results = prediction_results[prediction_results['data_type'].eq(best_flagella_params['data_type'])]
         prediction_results = prediction_results[
-            prediction_results['threshold_percent'].eq(best_flagella_params['bottom_threshold']*100)]
+            prediction_results['threshold_percent'].eq(best_flagella_params['bottom_threshold'] * 100)]
         prediction_results = prediction_results.rename(columns={'0': 'predict_proba'}).set_index('sample_id')[
             ['predict_proba']]
         prediction_results['y'] = y
@@ -137,6 +140,7 @@ if __name__ == "__main__":
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.legend(
             handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
+        ax.xaxis.label.set_visible(False)
         ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
 
         # Add shap beeswarm of flagella model
@@ -146,11 +150,22 @@ if __name__ == "__main__":
         model = predictor.fit(x, y)
         explainer = shap.TreeExplainer(model, x)
         shap_values_ebm = explainer(x)
+
+        # Save shap importance table
+        shap_df = pd.DataFrame(shap_values_ebm.values, columns=x.columns)
+        vals = np.abs(shap_df.values).mean(0)
+        shap_importance = pd.DataFrame(list(zip(x.columns, vals)), columns=['col_name', 'feature_importance_vals'])
+        shap_importance.sort_values(by=['feature_importance_vals'], ascending=False, inplace=True)
+        shap_importance.set_index('col_name', inplace=True)
+        shap_importance = shap_importance.merge(get_oligos_metadata()[['full name']], left_index=True, right_index=True,
+                                                how='left')
+        shap_importance.to_csv(os.path.join(figures_dir, f"shap_values_{estimator_name}.csv"))
+
         shap.plots.beeswarm(shap_values_ebm, max_display=15, show=False, plot_size=None, sum_bottom_features=False)
         ax.set_yticklabels(list(
             map(lambda ticklabel: plt.Text(*ticklabel.get_position(), get_blood_test_name(ticklabel.get_text())),
                 ax.get_yticklabels())))
         ax.text(-0.5, 1.1, string.ascii_uppercase[4], transform=ax.transAxes, size=20, weight='bold')
-        # plt.show()
+
         plt.savefig(os.path.join(figures_dir, f'figure_4_{estimator_name}.png'))
         plt.close()
