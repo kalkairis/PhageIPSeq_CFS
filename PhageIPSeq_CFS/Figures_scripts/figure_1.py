@@ -140,7 +140,8 @@ def create_figure_1(overwrite=True):
                         box_pairs=list(passed_pvals.keys()),
                         pvalues=list(passed_pvals.values()), perform_stat_test=False
                         )
-    plt.setp(ax.get_xticklabels(), rotation=45)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    ax.xaxis.label.set_visible(False)
     ax.text(-0.1, 1.1, string.ascii_uppercase[4], transform=ax.transAxes, size=20, weight='bold')
 
     # sub-figure f
