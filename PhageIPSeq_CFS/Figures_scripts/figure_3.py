@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from scipy import stats
 
 from PhageIPSeq_CFS.config import visualizations_dir, predictors_info, predictions_outcome_dir, oligo_families_colors, \
-    oligo_order
+    oligo_order, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_outcome, get_x_y, get_oligos_metadata, \
     create_auc_with_bootstrap_figure
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     for estimator_name, estimator_info in predictors_info.items():
         predictor_kwargs = estimator_info['predictor_kwargs']
         fig = plt.figure(figsize=(10, 10))
-        spec = fig.add_gridspec(2, 2, hspace=0.5)
+        spec = fig.add_gridspec(2, 2, hspace=0.8, wspace=0.3)
         num_auc_repeats = 100
 
         # Sub-figure a
@@ -40,8 +40,9 @@ if __name__ == "__main__":
         prediction_results = prediction_results.set_index('sample_id').rename(columns={'0': 'predict_proba'})
         prediction_results['y'] = get_outcome()
         create_auc_with_bootstrap_figure(num_auc_repeats, None, None, estimator_info['predictor_class'],
-                                         color=oligo_families_colors['PNP'], chance_color='black',
-                                         ax=ax, prediction_results=prediction_results, **predictor_kwargs)
+                                         color=oligo_families_colors['Metagenomics\nantigens'], chance_color='black',
+                                         ax=ax, prediction_results=prediction_results,
+                                         predictor_name='Metagenomics antigens\n', **predictor_kwargs)
         ax.text(-0.1, 1.1, string.ascii_uppercase[0], transform=ax.transAxes, size=20, weight='bold')
 
         # Sub-figure b
@@ -51,9 +52,7 @@ if __name__ == "__main__":
             index_col=[0, 1], header=[0, 1])
         best_auc_df = df.stack(level=0).reset_index().sort_values(by='auc', ascending=False).groupby(
             'subgroup').first().reset_index()
-        best_auc_df['subgroup'] = best_auc_df['subgroup'].apply(
-            lambda subgroup: ' '.join(subgroup.split('_'))).apply(
-            lambda subgroup: subgroup[3:] if subgroup.startswith('is ') else subgroup)
+        best_auc_df['subgroup'] = best_auc_df['subgroup'].apply(lambda subgroup: oligos_group_to_name[subgroup])
         best_auc_df['auc_ci'] = best_auc_df.apply(
             lambda row: np.array(stats.norm(0, row['std']).interval(0.95)), axis=1)
         sns.barplot(data=best_auc_df, x='subgroup', y='auc', ci=None, ax=ax, palette=sns.color_palette(),
@@ -65,6 +64,7 @@ if __name__ == "__main__":
         ax.errorbar(**params)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.set_ylim(bottom=0.4)
+        ax.set_ylabel('AUC of predictions\nbased on Ig epitope repertoire')
         ax.xaxis.label.set_visible(False)
         ax.text(-0.1, 1.1, string.ascii_uppercase[1], transform=ax.transAxes, size=20, weight='bold')
 

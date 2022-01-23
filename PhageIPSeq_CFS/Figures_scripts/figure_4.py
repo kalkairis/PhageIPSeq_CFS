@@ -12,7 +12,7 @@ from scipy import stats
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_order, \
-    oligo_families_colors, predictors_info, predictions_outcome_dir
+    oligo_families_colors, predictors_info, predictions_outcome_dir, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata, \
     compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure, get_oligos_metadata
 
@@ -84,8 +84,7 @@ if __name__ == "__main__":
         blood_test_auc_std, blood_test_auc = create_auc_with_bootstrap_figure(
             num_confidence_intervals_repeats=num_auc_repeats, x=x, y=y,
             predictor_class=estimator_info['predictor_class'], ax=ax, color=blood_tests_only_color,
-            prediction_results=prediction_results, **predictor_kwargs)
-        ax.set_title('Blood tests alone')
+            prediction_results=prediction_results, predictor_name='Blood tests alone\n', **predictor_kwargs)
         tmp = ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_uppercase[1],
                       transform=ax.transAxes, size=20, weight='bold')
 
@@ -112,9 +111,9 @@ if __name__ == "__main__":
             ['predict_proba']]
         prediction_results['y'] = y
         create_auc_with_bootstrap_figure(num_auc_repeats, x, y, estimator_info['predictor_class'],
-                                         color=oligo_families_colors['bac flagella'],
-                                         ax=ax, prediction_results=prediction_results, **predictor_kwargs)
-        ax.set_title('Blood tests and flagella')
+                                         color=oligo_families_colors['Flagellins'],
+                                         ax=ax, prediction_results=prediction_results,
+                                         predictor_name='Blood tests and flagellins\n', **predictor_kwargs)
         ax.text(-0.1, 1.1, string.ascii_uppercase[2], transform=ax.transAxes, size=20, weight='bold')
 
         # Summary of results
@@ -124,8 +123,7 @@ if __name__ == "__main__":
         best_auc_df = df.stack(level=0).reset_index().sort_values(by='auc', ascending=False).groupby(
             'subgroup').first().reset_index()
         best_auc_df['subgroup'] = best_auc_df['subgroup'].apply(
-            lambda subgroup: ' '.join(subgroup.split('_'))).apply(
-            lambda subgroup: subgroup[3:] if subgroup.startswith('is ') else subgroup)
+            lambda subgroup: oligos_group_to_name[subgroup])
         best_auc_df['auc_ci'] = best_auc_df.apply(
             lambda row: np.array(stats.norm(0, row['std']).interval(0.95)), axis=1)
         sns.barplot(data=best_auc_df, x='subgroup', y='auc', ci=None, ax=ax, palette=sns.color_palette(),
@@ -136,11 +134,11 @@ if __name__ == "__main__":
                   'fmt': 'none', 'ecolor': 'black', 'capsize': 10}
         ax.errorbar(**params)
         ax.set_ylim(bottom=0.7)
-        ax.set_title('Prediction results by subgroup')
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.legend(
             handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
         ax.xaxis.label.set_visible(False)
+        ax.set_ylabel('AUC of predictions\nbased on Ig epitope repertoire')
         ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
 
         # Add shap beeswarm of flagella model

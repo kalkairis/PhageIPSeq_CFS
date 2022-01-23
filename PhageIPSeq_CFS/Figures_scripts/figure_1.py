@@ -1,5 +1,6 @@
 import os
 import string
+
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -9,7 +10,7 @@ from skbio.diversity.alpha import shannon
 from statannot import add_stat_annotation
 from statsmodels.stats.multitest import multipletests
 
-from PhageIPSeq_CFS.config import visualizations_dir, oligo_families, oligo_families_colors
+from PhageIPSeq_CFS.config import visualizations_dir, oligo_families, oligo_families_colors, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_data_with_outcome, get_oligos_metadata, split_xy_df_and_filter_by_threshold, \
     get_individuals_metadata_df
 
@@ -31,7 +32,7 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(spec[0, 1])
     ax.text(-0.1, 1.1, string.ascii_uppercase[1], transform=ax.transAxes, size=20, weight='bold')
     ax.set_axis_off()
-    internal_spec = spec[0, 1].subgridspec(2, 1, height_ratios=[1, 2])
+    internal_spec = spec[0, 1].subgridspec(2, 1, height_ratios=[1, 4])
     # adding empty space for table on cohort info
     ax = fig.add_subplot(internal_spec[0])
     ax.set_axis_off()
@@ -79,7 +80,7 @@ def create_figure_1(overwrite=True):
     sns.boxplot(data=df, x='status', y='num_oligos', palette=sns.color_palette("muted")[-2:][::-1], ax=ax)
     ax.set_xlabel('')
     ax.spines['right'].set_linestyle('dashed')
-    ax.set_ylabel('Number of oligos per individual')
+    ax.set_ylabel('Number of significantly bound\npeptides per individual')
 
     ax = fig.add_subplot(internal_figure_spec[1])
     ax.get_yaxis().set_visible(False)
@@ -88,25 +89,25 @@ def create_figure_1(overwrite=True):
     ax2 = sns.boxplot(data=df2, x='status', y='shannon_div', palette=sns.color_palette()[-2:][::-1], ax=ax2)
     ax2.set_xlabel('')
     ax2.spines['left'].set_visible(False)
-    ax2.set_ylabel(r'Shannon $\alpha$-diversity')
+    ax2.set_ylabel(r'Shannon $\alpha$-diversity' +' of\nantibody epitope repertoires')
 
     # sub-figure d - scatter plot of expression
     ax = fig.add_subplot(spec[1, 0])
     df = get_data_with_outcome(data_type='exist')
-    cfs_label = 'Number of CFS patients in whome a\npeptite is significantly bound'
-    healthy_label = 'Number of healthy patients in whome\na peptite is significantly bound'
+    cfs_label = 'Percent of CFS patients in whom a\npeptide is significantly bound'
+    healthy_label = 'Percent of healthy patients in whom\na peptide is significantly bound'
     df['disease_status'] = df.reset_index()['is_CFS'].astype(bool).apply(
         lambda x: cfs_label if x else healthy_label).values
-    df = df.groupby('disease_status').sum().T
+    df = df.groupby('disease_status').mean().mul(100).T
     df['is_flagellin'] = get_oligos_metadata()['is_bac_flagella']
     df.sort_values(by='is_flagellin', inplace=True)
     sns.scatterplot(data=df, x=cfs_label,
                     y=healthy_label, hue='is_flagellin',
-                    palette=['lightgray', oligo_families_colors['bac flagella']],
+                    palette=['lightgray', oligo_families_colors['Flagellins']],
                     ax=ax)
     legend_handels, legend_labels = ax.get_legend_handles_labels()
     legend_handels = [legend_handels[legend_labels.index('True')]]
-    legend_labels = ['Bacterial flagellins']
+    legend_labels = ['Flagellins']
     ax.legend(handles=legend_handels, labels=legend_labels)
 
     ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
@@ -118,12 +119,13 @@ def create_figure_1(overwrite=True):
     df = df.groupby('is_CFS').sum()
     df = df.loc[:, df.ne(0).all()].copy()
     metadata = get_oligos_metadata()[oligo_families].rename(
-        columns={col: ' '.join(col.split('_')[1:]) for col in oligo_families}).loc[df.columns].stack()
+        columns=oligos_group_to_name).loc[df.columns].stack()
     metadata = metadata[metadata].reset_index(level=-1).drop(columns=0).rename(columns={'level_1': 'Oligo family'})
-    ratio_column = 'Number of patients with oligo\nexpression CFS to healthy ratio'
+    ratio_column = 'Ratios of CFS and healthy individuals'
     metadata[ratio_column] = df.apply(
         lambda oligo: oligo[int(True)] / oligo[int(False)])
-    order = ['PNP', 'patho', 'probio', 'IgA', 'bac flagella', 'IEDB or cntrl']
+    order = ['Metagenomics\nantigens', 'Pathogenic strains', 'Probiotic strains',
+             'Antibody-coated\nstrains', 'Flagellins', 'IEDB/controls']
     ax = sns.boxplot(data=metadata, x='Oligo family', y=ratio_column, ax=ax, order=order,
                      palette=list(map(lambda family: oligo_families_colors[family], order)))
     pval_res = {}
@@ -148,8 +150,7 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(spec[1, 2])
     ax.set_axis_off()
     df = get_data_with_outcome(data_type='exist').reset_index(0).groupby('is_CFS').sum().T
-    metadata = get_oligos_metadata()[oligo_families].rename(
-        columns={col: ' '.join(col.split('_')[1:]) for col in oligo_families}).loc[df.index]
+    metadata = get_oligos_metadata()[oligo_families].rename(columns=oligos_group_to_name).loc[df.index]
     rank_sum_res = {}
     for col in metadata.columns:
         rank_sum_res[col] = stats.ranksums(*df.loc[metadata[col]].T.values)
@@ -158,7 +159,7 @@ def create_figure_1(overwrite=True):
     rank_sum_res['p-value'] = rank_sum_res['p-value'].apply('{:.0e}'.format)
     table = ax.table(cellText=rank_sum_res.astype(str).values, rowLabels=rank_sum_res.index.values,
                      colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.3, 0.3, 0.3])
-    table.scale(1, 2)
+    table.scale(1, 2.5)
     ax.text(-0.1, 1.1, string.ascii_uppercase[5], transform=ax.transAxes, size=20, weight='bold')
 
     if overwrite:

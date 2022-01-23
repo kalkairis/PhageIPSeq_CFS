@@ -154,7 +154,7 @@ def get_x_y(bottom_threshold, data_type, oligos_subgroup, with_bloodtests, imput
 
 
 def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, predictor_class, color='blue', ax=None,
-                                     prediction_results=None, chance_color='r', *predictor_args,
+                                     prediction_results=None, chance_color='r', predictor_name='Predictor', *predictor_args,
                                      **predictor_kwargs):
     if prediction_results is None:
         prediction_results = run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predictor_kwargs)
@@ -168,10 +168,12 @@ def create_auc_with_bootstrap_figure(num_confidence_intervals_repeats, x, y, pre
         auc_confidence_interval.append(round_auc)
         ax.plot(round_fprs, round_tprs, color='grey', alpha=0.05)
     auc_std = np.std(auc_confidence_interval)
-    ax.plot(fprs, tprs, color=color, label=f"Predictor (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
+    ax.plot(fprs, tprs, color=color, label=f"{predictor_name} (AUC={round(auc_value, 3)}, std={round(auc_std, 3)})")
     ax.plot([0, 1], [0, 1], linestyle='--', lw=2, color=chance_color,
             label='Chance', alpha=.8)
     ax.legend()
+    ax.set_ylabel('True positive rate')
+    ax.set_xlabel('False positive rate')
     return auc_std, auc_value
 
 
