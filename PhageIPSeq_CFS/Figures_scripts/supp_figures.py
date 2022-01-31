@@ -33,7 +33,7 @@ def create_supp_figure_oligo_group_vs_all_distribution(output_dir, overwrite=Fal
     for i, oligo_group in enumerate(oligo_families):
         ax = fig.add_subplot(spec[i // 3, i % 3])
         create_single_oligo_group_vs_all_distribution(df, ax, oligo_group, cfs_label, healthy_label)
-        ax.text(-0.1, 1.1, string.ascii_uppercase[i], transform=ax.transAxes, size=20, weight='bold')
+        ax.text(-0.1, 1.1, string.ascii_lowercase[i], transform=ax.transAxes, size=20, weight='bold')
     if overwrite:
         plt.savefig(os.path.join(output_dir, 'supp_figure_1.png'))
     else:

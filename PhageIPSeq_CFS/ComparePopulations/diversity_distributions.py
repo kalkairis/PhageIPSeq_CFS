@@ -91,7 +91,7 @@ if __name__ == "__main__":
     for col in range(ncols):
         for row in range(nrows):
             ax = axes[row][col]
-            ax.text(-0.1, 1.1, string.ascii_uppercase[n], transform=ax.transAxes, size=20, weight='bold')
+            ax.text(-0.1, 1.1, string.ascii_lowercase[n], transform=ax.transAxes, size=20, weight='bold')
             n += 1
 
     res = pd.DataFrame(statistics_results).transpose()

@@ -8,10 +8,11 @@ import shap
 from matplotlib import pyplot as plt
 from scipy import stats
 
+
 from PhageIPSeq_CFS.config import visualizations_dir, predictors_info, predictions_outcome_dir, oligo_families_colors, \
     oligo_order, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_outcome, get_x_y, get_oligos_metadata, \
-    create_auc_with_bootstrap_figure
+    create_auc_with_bootstrap_figure, get_oligos_with_outcome
 
 if __name__ == "__main__":
     figures_dir = os.path.join(visualizations_dir, 'figure_3')
@@ -19,8 +20,8 @@ if __name__ == "__main__":
 
     for estimator_name, estimator_info in predictors_info.items():
         predictor_kwargs = estimator_info['predictor_kwargs']
-        fig = plt.figure(figsize=(10, 10))
-        spec = fig.add_gridspec(2, 2, hspace=0.8, wspace=0.3)
+        fig = plt.figure(figsize=(15, 10))
+        spec = fig.add_gridspec(2, 3, hspace=0.8, wspace=0.3)
         num_auc_repeats = 100
 
         # Sub-figure a
@@ -43,7 +44,7 @@ if __name__ == "__main__":
                                          color=oligo_families_colors['Metagenomics\nantigens'], chance_color='black',
                                          ax=ax, prediction_results=prediction_results,
                                          predictor_name='Metagenomics antigens\n', **predictor_kwargs)
-        ax.text(-0.1, 1.1, string.ascii_uppercase[0], transform=ax.transAxes, size=20, weight='bold')
+        ax.text(-0.1, 1.1, string.ascii_lowercase[0], transform=ax.transAxes, size=20, weight='bold')
 
         # Sub-figure b
         ax = fig.add_subplot(spec[0, 1])
@@ -65,14 +66,14 @@ if __name__ == "__main__":
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.set_ylim(bottom=0.4)
         ax.set_ylabel('AUC of predictions\nbased on Ig epitope repertoire')
-        ax.xaxis.label.set_visible(False)
-        ax.text(-0.1, 1.1, string.ascii_uppercase[1], transform=ax.transAxes, size=20, weight='bold')
+        ax.set_xlabel("Subgroups of the antigen library")
+        ax.text(-0.1, 1.1, string.ascii_lowercase[1], transform=ax.transAxes, size=20, weight='bold')
 
         # Sub-figure c
-        ax = fig.add_subplot(spec[1, 0])
+        ax = fig.add_subplot(spec[0, 2])
         ax.set_axis_off()
-        ax.text(-0.1, 1.1, string.ascii_uppercase[2], transform=ax.transAxes, size=20, weight='bold')
-        internal_spec = spec[1, 0].subgridspec(1, 2, width_ratios=[1, 6])
+        ax.text(-0.1, 1.1, string.ascii_lowercase[2], transform=ax.transAxes, size=20, weight='bold')
+        internal_spec = spec[0, 2].subgridspec(1, 2, width_ratios=[1, 6])
         ax = fig.add_subplot(internal_spec[0])
         ax.set_axis_off()
         ax = fig.add_subplot(internal_spec[1])
@@ -91,17 +92,28 @@ if __name__ == "__main__":
         shap_importance.sort_values(by=['feature_importance_vals'], ascending=False, inplace=True)
         shap_importance.set_index('col_name', inplace=True)
         shap_importance['oligo full name'] = get_oligos_metadata()['full name'].loc[shap_importance.index]
+        shap_importance['Healthy percentage'], shap_importance['ME/CFS percentage'] = get_oligos_with_outcome('exist').reset_index(0).groupby('is_CFS').mean().mul(100).sort_index().T.loc[shap_importance.index].T.values
         shap_importance.to_csv(os.path.join(figures_dir, f"shap_values_{estimator_name}.csv"))
 
-        shap.plots.beeswarm(shap_values_ebm, max_display=15, show=False, plot_size=None, sum_bottom_features=False)
+        ret = shap.plots.beeswarm(shap_values_ebm, max_display=15, show=False, plot_size=None, sum_bottom_features=False)
         ax.set_yticklabels(list(
             map(lambda ticklabel: plt.Text(*ticklabel.get_position(), ticklabel.get_text().split("_")[1]),
                 ax.get_yticklabels())))
-        ax.set_xlabel("SHAP value (PNP model)")
+        ax.set_xlabel("Controls           ME/CFS\nSHAP value (Metagenomics model)")
 
         # Sub-figure d
+        ax = fig.add_subplot(spec[1, 0])
+        ax.set_axis_off()
+        ax.text(-0.1, 1.1, string.ascii_lowercase[3], transform=ax.transAxes, size=20, weight='bold')
+
+        # Sub-figure e
         ax = fig.add_subplot(spec[1, 1])
         ax.set_axis_off()
-        ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
+        ax.text(-0.1, 1.1, string.ascii_lowercase[4], transform=ax.transAxes, size=20, weight='bold')
+
+        # Sub-figure d
+        ax = fig.add_subplot(spec[1, 2])
+        ax.set_axis_off()
+        ax.text(-0.1, 1.1, string.ascii_lowercase[5], transform=ax.transAxes, size=20, weight='bold')
 
         plt.savefig(os.path.join(figures_dir, f'figure_3_{estimator_name}.png'))

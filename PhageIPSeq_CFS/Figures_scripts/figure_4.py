@@ -14,7 +14,8 @@ from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_order, \
     oligo_families_colors, predictors_info, predictions_outcome_dir, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome, get_imputed_individuals_metadata, \
-    compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure, get_oligos_metadata
+    compute_auc_from_prediction_results, get_x_y, create_auc_with_bootstrap_figure, get_oligos_metadata, \
+    get_oligos_with_outcome
 
 
 # from sklearn.ensemble import GradientBoostingClassifier
@@ -40,7 +41,7 @@ def metadata_distribution_sub_figure(spec, fig):
     internal_spec_for_legend = spec.subgridspec(2, 1, height_ratios=[15, 1], hspace=0.2)
     ax = fig.add_subplot(internal_spec_for_legend[0, :])
     ax.set_axis_off()
-    ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_uppercase[0], transform=ax.transAxes,
+    ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_lowercase[0], transform=ax.transAxes,
             size=20, weight='bold')
     internal_spec = internal_spec_for_legend[0, :].subgridspec(2, len(blood_tests_order) // 2, wspace=1.2, hspace=0.6)
     for blood_test, single_internal_spec in zip(blood_tests_order, internal_spec):
@@ -85,7 +86,7 @@ if __name__ == "__main__":
             num_confidence_intervals_repeats=num_auc_repeats, x=x, y=y,
             predictor_class=estimator_info['predictor_class'], ax=ax, color=blood_tests_only_color,
             prediction_results=prediction_results, predictor_name='Blood tests alone\n', **predictor_kwargs)
-        tmp = ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_uppercase[1],
+        tmp = ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_lowercase[1],
                       transform=ax.transAxes, size=20, weight='bold')
 
         # Add predictions from blood tests and flagella
@@ -114,7 +115,7 @@ if __name__ == "__main__":
                                          color=oligo_families_colors['Flagellins'],
                                          ax=ax, prediction_results=prediction_results,
                                          predictor_name='Blood tests and flagellins\n', **predictor_kwargs)
-        ax.text(-0.1, 1.1, string.ascii_uppercase[2], transform=ax.transAxes, size=20, weight='bold')
+        ax.text(-0.1, 1.1, string.ascii_lowercase[2], transform=ax.transAxes, size=20, weight='bold')
 
         # Summary of results
         ax = fig.add_subplot(internal_spec[2])
@@ -137,9 +138,9 @@ if __name__ == "__main__":
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.legend(
             handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
-        ax.xaxis.label.set_visible(False)
+        ax.set_xlabel("Ig epitope repertoire predictions\nbased on antigens selected from...")
         ax.set_ylabel('AUC of predictions\nbased on Ig epitope repertoire')
-        ax.text(-0.1, 1.1, string.ascii_uppercase[3], transform=ax.transAxes, size=20, weight='bold')
+        ax.text(-0.1, 1.1, string.ascii_lowercase[3], transform=ax.transAxes, size=20, weight='bold')
 
         # Add shap beeswarm of flagella model
         ax = fig.add_subplot(internal_spec_1[1])
@@ -157,13 +158,19 @@ if __name__ == "__main__":
         shap_importance.set_index('col_name', inplace=True)
         shap_importance = shap_importance.merge(get_oligos_metadata()[['full name']], left_index=True, right_index=True,
                                                 how='left')
+        exist_percentiles = get_oligos_with_outcome('exist').reset_index(0).groupby('is_CFS').mean().mul(
+            100).sort_index().T.rename(columns={0: 'Controls percentage', 1: 'ME/CFS percentage'})
+        shap_importance = pd.merge(shap_importance, exist_percentiles, left_index=True, right_index=True, how='left')
         shap_importance.to_csv(os.path.join(figures_dir, f"shap_values_{estimator_name}.csv"))
 
         shap.plots.beeswarm(shap_values_ebm, max_display=15, show=False, plot_size=None, sum_bottom_features=False)
         ax.set_yticklabels(list(
             map(lambda ticklabel: plt.Text(*ticklabel.get_position(), get_blood_test_name(ticklabel.get_text())),
                 ax.get_yticklabels())))
-        ax.text(-0.5, 1.1, string.ascii_uppercase[4], transform=ax.transAxes, size=20, weight='bold')
+        ax.set_xlabel("Controls          ME/CFS\nSHAP value (impact on model)\n* Eubacterium sp. Flagellin     ")
+        ax.text(-0.5, 1.1, string.ascii_lowercase[4], transform=ax.transAxes, size=20, weight='bold')
+
+        fig.subplots_adjust(bottom=0.15)
 
         plt.savefig(os.path.join(figures_dir, f'figure_4_{estimator_name}.png'))
         plt.close()

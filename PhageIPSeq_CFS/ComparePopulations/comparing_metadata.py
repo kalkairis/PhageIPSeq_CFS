@@ -1,12 +1,9 @@
-import os
-
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from statannot import add_stat_annotation
 
-from PhageIPSeq_CFS.config import visualizations_dir
 from PhageIPSeq_CFS.helpers import get_individuals_metadata_df, get_outcome
 
 
@@ -32,7 +29,8 @@ def metadata_distribution_figure_single_blood_test(ax, blood_test, metadata):
                             test='Mann-Whitney', text_format='star', comparisons_correction='bonferroni',
                             box_pairs=[('Sick', 'Healthy')], loc='inside', verbose=False)
         ax.set(xlabel='', ylabel='', xticklabels=[], title=blood_test)
-        plt.setp(ax.title, bbox={'facecolor':'xkcd:mint green', 'alpha': 0.5, 'pad': 2, 'edgecolor': 'xkcd:mint green'})
+        plt.setp(ax.title,
+                 bbox={'facecolor': 'xkcd:mint green', 'alpha': 0.5, 'pad': 2, 'edgecolor': 'xkcd:mint green'})
         # ax.set_facecolor('xkcd:mint green')
     # else:
     #     ax.set_facecolor('xkcd:salmon')
@@ -48,8 +46,9 @@ def get_blood_test_name(blood_name_original):
     elif ret == 'agegroup Average':
         ret = 'Age group'
     if ret.startswith('agilent'):
-        ret = ' '.join(ret.split(' ')[1:])
+        ret = ' '.join(ret.split(' ')[1:]) + '*'
     return ret
+
 
 def get_metadata_comparison_sub_figure(spec):
     # noinspection PyTypeChecker
