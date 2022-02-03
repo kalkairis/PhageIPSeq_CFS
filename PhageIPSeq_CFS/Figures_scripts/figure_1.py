@@ -9,6 +9,9 @@ from scipy import stats
 from skbio.diversity.alpha import shannon
 from statannot import add_stat_annotation
 from statsmodels.stats.multitest import multipletests
+import matplotlib.image as mpimg
+from PIL import Image
+
 
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_families, oligo_families_colors, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_data_with_outcome, get_oligos_metadata, split_xy_df_and_filter_by_threshold, \
@@ -25,6 +28,15 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(spec[0, 0])
     ax.set_axis_off()
     ax.text(-0.1, 1.1, string.ascii_lowercase[0], transform=ax.transAxes, size=20, weight='bold')
+    bounds = list(ax.get_position().bounds)
+    bounds[0] -= 0.03
+    bounds[1] -= 0.02
+    bounds[3] *= 1.1
+    bounds[2] *= 1.2
+    ax = fig.add_axes(bounds)
+    ax.set_axis_off()
+    img = mpimg.imread(os.path.join(figures_dir, "Fig.1a.png"))
+    ax.imshow(img, origin='upper')
 
     # sub-figure b - cohort info
     cohort_info = get_individuals_metadata_df()[['catrecruit_Binary', 'sex_Binary', 'agegroup_Average']]
@@ -32,15 +44,21 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(spec[0, 1])
     ax.text(-0.1, 1.1, string.ascii_lowercase[1], transform=ax.transAxes, size=20, weight='bold')
     ax.set_axis_off()
-    internal_spec = spec[0, 1].subgridspec(2, 1, height_ratios=[1, 8])
+    internal_spec = spec[0, 1].subgridspec(2, 1, height_ratios=[1, 8], hspace=0)
     # adding empty space for table on cohort info
     ax = fig.add_subplot(internal_spec[0])
     ax.set_axis_off()
-
+    bounds = list(ax.get_position().bounds)
+    bounds[1] -= 0.04
+    bounds[3] *= 3
+    ax = fig.add_axes(bounds)
+    ax.set_axis_off()
+    img = mpimg.imread(os.path.join(figures_dir, "Fig.1b.png"))
+    ax.imshow(img, origin='upper')
     internal_figure_spec = internal_spec[1].subgridspec(2, 2, wspace=0, hspace=0, height_ratios=[1, 3])
     ax = fig.add_subplot(internal_figure_spec[1, 0])
     sns.histplot(data=cohort_info[cohort_info['catrecruit_Binary'].eq(1)],
-                 y='agegroup_Average', hue='Sex',
+                 y='agegroup_Average', hue='Sex', hue_order=['Female', 'Male'],
                  palette=[sns.color_palette("colorblind")[-4], sns.color_palette("colorblind")[-1]],
                  multiple="stack", bins=4, ax=ax, legend=False)
     ax.set_ylabel('Age group average')
@@ -50,18 +68,18 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(internal_figure_spec[1, 1], sharey=ax)
     ax.get_yaxis().set_visible(False)
     ax = sns.histplot(data=cohort_info[cohort_info['catrecruit_Binary'].eq(0)], y='agegroup_Average',
-                      bins=4,
+                      bins=4, hue_order=['Female', 'Male'],
                       palette=[sns.color_palette("colorblind")[-4], sns.color_palette("colorblind")[-1]],
                       hue='Sex',
                       multiple="stack", legend=False,
                       ax=ax)
 
-    ax.set_xlabel('Controls')
+    ax.set_xlabel('Healthy controls')
     ax = fig.add_subplot(internal_figure_spec[0, :])
     ax.set_axis_off()
     ax.legend(
-        handles=[mpatches.Patch(facecolor=sns.color_palette("colorblind")[-4], label='Male', edgecolor='black'),
-                 mpatches.Patch(facecolor=sns.color_palette("colorblind")[-1], label='Female', edgecolor='black')],
+        handles=[mpatches.Patch(facecolor=sns.color_palette("colorblind")[-1], label='Male', edgecolor='black'),
+                 mpatches.Patch(facecolor=sns.color_palette("colorblind")[-4], label='Female', edgecolor='black')],
         loc='lower center', ncol=2)
 
     # sub-figure c
@@ -69,11 +87,11 @@ def create_figure_1(overwrite=True):
     ax.set_axis_off()
     ax.text(-0.1, 1.1, string.ascii_lowercase[2], transform=ax.transAxes, size=20, weight='bold')
     df = get_data_with_outcome(data_type='exist').sum(axis=1).reset_index(0).rename(columns={0: 'num_oligos'})
-    df['status'] = df['is_CFS'].astype(bool).apply(lambda x: 'ME/CFS' if x else 'Controls')
+    df['status'] = df['is_CFS'].astype(bool).apply(lambda x: 'ME/CFS' if x else 'Healthy\ncontrols')
 
     df2 = get_data_with_outcome().fillna(1)
     df2['shannon_div'] = df2.apply(lambda row: shannon(row), axis=1)
-    df2['status'] = df2.reset_index()['is_CFS'].astype(bool).apply(lambda x: 'ME/CFS' if x else 'Controls').values
+    df2['status'] = df2.reset_index()['is_CFS'].astype(bool).apply(lambda x: 'ME/CFS' if x else 'Healthy\ncontrols').values
 
     internal_figure_spec = spec[0, 2].subgridspec(1, 2, wspace=0.6)
     ax = fig.add_subplot(internal_figure_spec[0])
@@ -81,7 +99,7 @@ def create_figure_1(overwrite=True):
     ax.set_xlabel('')
     ax.set_ylabel('Number of significantly bound\npeptides per individual')
     add_stat_annotation(data=df, x='status', y='num_oligos', ax=ax,
-                        box_pairs=[['ME/CFS', 'Controls']], test='Mann-Whitney'
+                        box_pairs=[['ME/CFS', 'Healthy\ncontrols']], test='Mann-Whitney'
                         )
 
     ax = fig.add_subplot(internal_figure_spec[1])
@@ -89,14 +107,14 @@ def create_figure_1(overwrite=True):
     ax.set_xlabel('')
     ax.set_ylabel(r'Shannon $\alpha$-diversity' +' of\nantibody epitope repertoires')
     add_stat_annotation(data=df2, x='status', y='shannon_div', ax=ax,
-                        box_pairs=[['ME/CFS', 'Controls']], test='Mann-Whitney'
+                        box_pairs=[['ME/CFS', 'Healthy\ncontrols']], test='Mann-Whitney'
                         )
 
     # sub-figure d - scatter plot of expression
     ax = fig.add_subplot(spec[1, 0])
     df = get_data_with_outcome(data_type='exist')
     cfs_label = 'Percent of ME/CFS patients in whom a\npeptide is significantly bound'
-    healthy_label = 'Percent of control patients in whom\na peptide is significantly bound'
+    healthy_label = 'Percent of healthy control patients in\nwhom a peptide is significantly bound'
     df['disease_status'] = df.reset_index()['is_CFS'].astype(bool).apply(
         lambda x: cfs_label if x else healthy_label).values
     df = df.groupby('disease_status').mean().mul(100).T
