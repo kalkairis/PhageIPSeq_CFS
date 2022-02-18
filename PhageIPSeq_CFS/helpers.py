@@ -194,3 +194,5 @@ def run_leave_one_out_prediction(x, y, predictor_class, *predictor_args, **predi
             predict_proba = predictor.predict_proba(x.loc[sample].values.reshape(1, -1))[0][1]
         ret[sample] = {'y': y.loc[sample], 'y_hat': y_hat, 'predict_proba': predict_proba}
     return pd.DataFrame(ret).transpose()
+
+get_individuals_metadata_df(threshold_for_removal = 10)

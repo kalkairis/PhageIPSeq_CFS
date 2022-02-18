@@ -12,9 +12,10 @@ oligo_families = ['is_PNP', 'is_patho', 'is_probio', 'is_IgA', 'is_bac_flagella'
 oligos_group_to_name = {'is_PNP': 'Metagenomics\nantigens', 'all': 'Complete library', 'is_patho': 'Pathogenic strains',
                         'is_probio': 'Probiotic strains', 'is_IgA': 'Antibody-coated\nstrains',
                         'is_bac_flagella': 'Flagellins', 'is_IEDB_or_cntrl': 'IEDB/controls'}
-oligo_order = ['IEDB/controls', 'Metagenomics\nantigens', 'Pathogenic strains', 'Probiotic strains',
-               'Antibody-coated\nstrains', 'Flagellins', 'Complete library']
-oligo_families_colors = dict(zip(oligo_order, sns.color_palette()[:len(oligo_order)]))
+oligo_order = ['Complete library', 'IEDB/controls', 'Metagenomics\nantigens', 'Pathogenic strains', 'Probiotic strains',
+               'Antibody-coated\nstrains', 'Flagellins']
+oligo_families_colors = dict(zip(oligo_order[1:], sns.color_palette()[:len(oligo_order)-1]))
+oligo_families_colors[oligo_order[0]] = sns.color_palette()[len(oligo_order)-1]
 RANDOM_STATE = 156124
 predictors_info = {'xgboost': {'predictor_class': XGBClassifier, 'predictor_kwargs': {'use_label_encoder': False,
                                                                                       'objective': 'binary:logistic',

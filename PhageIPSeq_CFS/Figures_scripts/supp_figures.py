@@ -25,8 +25,8 @@ def create_supp_figure_oligo_group_vs_all_distribution(output_dir, overwrite=Fal
     fig = plt.figure(figsize=(20, 10))
     spec = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
     df = get_data_with_outcome(data_type='exist')
-    cfs_label = 'Number of CFS patients in whome a\npeptite is significantly bound'
-    healthy_label = 'Number of healthy patients in whome\na peptite is significantly bound'
+    cfs_label = 'Number of CFS patients in whom a\npeptite is significantly bound'
+    healthy_label = 'Number of healthy patients in whom\na peptite is significantly bound'
     df['disease_status'] = df.reset_index()['is_CFS'].astype(bool).apply(
         lambda x: cfs_label if x else healthy_label).values
     df = df.groupby('disease_status').sum().T

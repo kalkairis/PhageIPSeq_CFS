@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 import shap
 from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 from PhageIPSeq_CFS.ComparePopulations.comparing_metadata import get_blood_test_name, \
     metadata_distribution_figure_single_blood_test
@@ -30,21 +31,21 @@ def metadata_distribution_sub_figure(spec, fig):
         right_index=True).set_index('is_CFS', append=True)
     # Get order of significance for blood test
     metadata.columns = list(map(get_blood_test_name, metadata.columns))
-    blood_tests_order = pd.Series(
+    blood_tests_p_vals = pd.Series(
         {col: stats.mannwhitneyu(*list(map(lambda item_values: item_values[1].dropna().values, (
             metadata[col].unstack(level=1)[['Healthy', 'Sick']].iteritems()))), alternative='two-sided').pvalue for col
          in
-         metadata.columns}).sort_values().index.values
-    stacked_metadata = metadata.stack().reset_index(level=2).rename(
-        columns={'level_2': 'Blood Test', 0: 'value'}).reset_index()
+         metadata.columns}).sort_values().to_frame().rename(columns={0: 'p-value'})
+    blood_tests_p_vals['passed_test'], blood_tests_p_vals['corrected_p_val'], _, _ = multipletests(
+        blood_tests_p_vals['p-value'], method='bonferroni')
     metadata = metadata.reset_index(level=1)
     internal_spec_for_legend = spec.subgridspec(2, 1, height_ratios=[15, 1], hspace=0.2)
     ax = fig.add_subplot(internal_spec_for_legend[0, :])
     ax.set_axis_off()
     ax.text(ax.transData.inverted().transform((255, 10))[0], 1.1, string.ascii_lowercase[0], transform=ax.transAxes,
             size=20, weight='bold')
-    internal_spec = internal_spec_for_legend[0, :].subgridspec(2, len(blood_tests_order) // 2, wspace=1.2, hspace=0.6)
-    for blood_test, single_internal_spec in zip(blood_tests_order, internal_spec):
+    internal_spec = internal_spec_for_legend[0, :].subgridspec(2, len(blood_tests_p_vals) // 2, wspace=1.2, hspace=0.6)
+    for blood_test, single_internal_spec in zip(blood_tests_p_vals.iterrows(), internal_spec):
         ax = fig.add_subplot(single_internal_spec)
         metadata_distribution_figure_single_blood_test(ax, blood_test, metadata)
     legend_spec = internal_spec_for_legend[1, :]
@@ -127,7 +128,8 @@ if __name__ == "__main__":
             lambda subgroup: oligos_group_to_name[subgroup])
         best_auc_df['auc_ci'] = best_auc_df.apply(
             lambda row: np.array(stats.norm(0, row['std']).interval(0.95)), axis=1)
-        sns.barplot(data=best_auc_df, x='subgroup', y='auc', ci=None, ax=ax, palette=sns.color_palette(),
+        sns.barplot(data=best_auc_df, x='subgroup', y='auc', ci=None, ax=ax,
+                    palette=list(map(oligo_families_colors.get, oligo_order)),
                     order=oligo_order)
         params = {'x': oligo_order, 'y': best_auc_df.set_index('subgroup').loc[oligo_order]['auc'].values,
                   'yerr': (best_auc_df.set_index('subgroup').loc[oligo_order]['std'] * stats.norm.ppf(
@@ -167,7 +169,7 @@ if __name__ == "__main__":
         ax.set_yticklabels(list(
             map(lambda ticklabel: plt.Text(*ticklabel.get_position(), get_blood_test_name(ticklabel.get_text())),
                 ax.get_yticklabels())))
-        ax.set_xlabel("Controls          ME/CFS\nSHAP value (impact on model)\n* Eubacterium sp. Flagellin     ")
+        ax.set_xlabel("Healthy controls          ME/CFS\nPrediction towards\n* Eubacterium sp. Flagellin     ")
         ax.text(-0.5, 1.1, string.ascii_lowercase[4], transform=ax.transAxes, size=20, weight='bold')
 
         fig.subplots_adjust(bottom=0.15)

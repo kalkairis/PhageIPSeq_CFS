@@ -10,13 +10,21 @@ from skbio.diversity.alpha import shannon
 from statannot import add_stat_annotation
 from statsmodels.stats.multitest import multipletests
 import matplotlib.image as mpimg
-from PIL import Image
 
 
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_families, oligo_families_colors, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_data_with_outcome, get_oligos_metadata, split_xy_df_and_filter_by_threshold, \
     get_individuals_metadata_df
 
+def get_ratio_between_groups(group_name):
+    df = get_data_with_outcome('exist')
+    df = df.reset_index(level=0).groupby('is_CFS').mean().mul(100).T
+    df = df[df.min(axis=1).gt(0)]
+    df['in_group'] = get_oligos_metadata()[group_name]
+    df['ratio'] = df[1] / df[0]
+    df.set_index('in_group', inplace=True)
+    stat, p_val = stats.ttest_ind(df.loc[True]['ratio'], df.loc[False]['ratio'])
+    return stat, p_val
 
 def create_figure_1(overwrite=True):
     figures_dir = os.path.join(visualizations_dir, 'figure_1')
@@ -127,12 +135,9 @@ def create_figure_1(overwrite=True):
     legend_handels, legend_labels = ax.get_legend_handles_labels()
     legend_handels = [legend_handels[legend_labels.index('True')]]
 
-    df = df[df[cfs_label].ne(0)]
-    df = df[df[healthy_label].ne(0)]
-    df['ratio'] = df[cfs_label] / df[healthy_label]
-    df.set_index('is_flagellin', inplace=True)
-    stat, p_val = stats.ttest_ind(df.loc[True]['ratio'], df.loc[False]['ratio'])
-    legend_labels = [f'Flagellins\nratio t-test={stat:.0f},\np-value={p_val:.0e}']
+    stat, p_val = get_ratio_between_groups('is_bac_flagella')
+    legend_labels = [f'Flagellins']
+    ax.text(80, 10, f"Flagellins ratio\noverrepresentation\np-value={p_val:.0e}", horizontalalignment='center')
     ax.legend(handles=legend_handels, labels=legend_labels)
 
     ax.text(-0.1, 1.1, string.ascii_lowercase[3], transform=ax.transAxes, size=20, weight='bold')
@@ -144,13 +149,15 @@ def create_figure_1(overwrite=True):
     df = df.groupby('is_CFS').sum()
     df = df.loc[:, df.ne(0).all()].copy()
     metadata = get_oligos_metadata()[oligo_families].rename(
-        columns=oligos_group_to_name).loc[df.columns].stack()
+        columns=oligos_group_to_name).loc[df.columns]
+    metadata['Complete library'] = True
+    metadata = metadata.stack()
     metadata = metadata[metadata].reset_index(level=-1).drop(columns=0).rename(columns={'level_1': 'Oligo family'})
     ratio_column = 'Ratios of antibody responses\nin ME/CFS and healthy controls'
     metadata[ratio_column] = df.apply(
         lambda oligo: oligo[int(True)] / oligo[int(False)])
     order = ['Metagenomics\nantigens', 'Pathogenic strains', 'Probiotic strains',
-             'Antibody-coated\nstrains', 'Flagellins', 'IEDB/controls']
+             'Antibody-coated\nstrains', 'Flagellins', 'IEDB/controls', 'Complete library']
     ax = sns.boxplot(data=metadata, x='Oligo family', y=ratio_column, ax=ax, order=order,
                      palette=list(map(lambda family: oligo_families_colors[family], order)))
     pval_res = {}
@@ -174,16 +181,27 @@ def create_figure_1(overwrite=True):
     # sub-figure f
     ax = fig.add_subplot(spec[1, 2])
     ax.set_axis_off()
-    df = get_data_with_outcome(data_type='exist').reset_index(0).groupby('is_CFS').sum().T
-    metadata = get_oligos_metadata()[oligo_families].rename(columns=oligos_group_to_name).loc[df.index]
+    df = get_data_with_outcome('exist')
+    metadata = get_oligos_metadata()[oligo_families].rename(columns=oligos_group_to_name).loc[df.columns]
+    metadata['Complete library'] = True
     rank_sum_res = {}
-    for col in metadata.columns:
-        rank_sum_res[col] = stats.ranksums(*df.loc[metadata[col]].T.values)
+    for group in metadata.columns:
+        df_group = df.loc[:, metadata[group]].sum(axis=1)
+        rank_sum_res[group] = stats.ranksums(df_group.loc[1], df_group.loc[0], alternative='greater')
     rank_sum_res = pd.DataFrame(rank_sum_res).T.rename(columns={0: 'Ranksums', 1: 'p-value'})
     rank_sum_res['Ranksums'] = rank_sum_res['Ranksums'].round(1)
-    rank_sum_res['p-value'] = rank_sum_res['p-value'].apply('{:.0e}'.format)
+    rank_sum_res['Ranksums\np-value'] = rank_sum_res['p-value'].apply('{:.3f}'.format)
+    rank_sum_res.sort_values(by='p-value', inplace=True)
+    rank_sum_res.drop(columns='p-value', inplace=True)
+    ratio_t_tests = pd.DataFrame({oligos_group_to_name[oligo_family]: dict(
+        zip(['t-test\nstatistic', 't-test\np-value'], get_ratio_between_groups(oligo_family))) for oligo_family in
+                                  oligo_families}).T
+    rank_sum_res = rank_sum_res.merge(ratio_t_tests, left_index=True, right_index=True, how='left')
+    rank_sum_res['t-test\nstatistic'] = rank_sum_res['t-test\nstatistic'].round()
+    rank_sum_res['t-test\np-value'] = rank_sum_res['t-test\np-value'].apply(lambda val: '' if pd.isnull(val) else '{:.0e}'.format(val))
+    rank_sum_res.fillna('', inplace=True)
     table = ax.table(cellText=rank_sum_res.astype(str).values, rowLabels=rank_sum_res.index.values,
-                     colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.3, 0.3, 0.3])
+                     colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.15]*rank_sum_res.shape[1])
     table.scale(1, 2.9)
     ax.text(-0.1, 1.1, string.ascii_lowercase[5], transform=ax.transAxes, size=20, weight='bold')
 
