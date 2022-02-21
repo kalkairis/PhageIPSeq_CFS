@@ -198,8 +198,8 @@ def create_figure_1(overwrite=True):
                                   oligo_families}).T
     rank_sum_res = rank_sum_res.merge(ratio_t_tests, left_index=True, right_index=True, how='left')
     rank_sum_res['t-test\nstatistic'] = rank_sum_res['t-test\nstatistic'].round()
-    rank_sum_res['t-test\np-value'] = rank_sum_res['t-test\np-value'].apply(lambda val: '' if pd.isnull(val) else '{:.0e}'.format(val))
-    rank_sum_res.fillna('', inplace=True)
+    rank_sum_res['t-test\np-value'] = rank_sum_res['t-test\np-value'].apply(lambda val: 'n.a.' if pd.isnull(val) else '{:.0e}'.format(val))
+    rank_sum_res.fillna('n.a.', inplace=True)
     table = ax.table(cellText=rank_sum_res.astype(str).values, rowLabels=rank_sum_res.index.values,
                      colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.15]*rank_sum_res.shape[1])
     table.scale(1, 2.9)
