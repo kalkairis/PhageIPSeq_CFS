@@ -1,0 +1,17 @@
+﻿Peptide number,Protein name,Protein length,Starting position of peptide,SHAP value,CFS,Ctrl.,Ratio
+212061,Bacteroides/Barnesiella Hypothetical protein ~,396,460,0.198,38,63,0.6
+106628,Lachnospiraceae Toxin A #,264,884,0.151,15,43,0.4
+183889,Blautia obeum MSCRAMM family adhesin domain containing protein #,44,470,0.112,13,33,0.4
+129819,Eubacterium sp. Flagellin #,0,517,0.112,50,15,3.3
+181972,Lachnospiraceae MurNAc-LAA domain-containing protein #,176,577,0.111,15,43,0.4
+150244,Bacteroidales Glyco_hydro_85 domain-containing protein #,930,994,0.109,50,38,1.3
+94148,Bacteroidales Por secretion system protein ~,765,829,0.107,43,57,0.7
+79824,Bacteroides Acetylhydrolase #,264,559,0.102,25,38,0.7
+191430,Bacteroidaceae GTPase HflX ~,132,417,0.092,13,28,0.5
+73216,Roseburia inulinivorans Flagellin #,44,466,0.086,45,13,3.6
+129839,Clostridiales Flagellin #,0,449,0.085,48,15,3.2
+193624,Bacteroides DUF4988 domain-containing protein #,44,803,0.084,30,13,2.4
+201880,Eubacterium rectale Toxin A #,459,523,0.084,40,57,0.7
+209928,Lachnospiraceae Toxin A #,44,884,0.081,40,55,0.7
+56127,Paraprevotella F5/8 type C domain protein #,264,983,0.077,18,28,0.6
+192983,Bacteroidales MurNAc-LAA domain-containing protein # ,1200,1264,0.074,68,63,1.1
