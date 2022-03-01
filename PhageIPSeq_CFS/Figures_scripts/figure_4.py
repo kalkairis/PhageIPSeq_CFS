@@ -82,7 +82,7 @@ if __name__ == "__main__":
         blood_tests_only_auc_results = dict(zip(['auc_value', 'fprs', 'tprs'],
                                                 compute_auc_from_prediction_results(prediction_results,
                                                                                     return_fprs_tprs=True)))
-        blood_tests_only_color = sns.color_palette()[len(oligo_order) + 1]
+        blood_tests_only_color = sns.color_palette()[len(oligo_order) + 1] # '#96971b'
         blood_test_auc_std, blood_test_auc = create_auc_with_bootstrap_figure(
             num_confidence_intervals_repeats=num_auc_repeats, x=x, y=y,
             predictor_class=estimator_info['predictor_class'], ax=ax, color=blood_tests_only_color,
@@ -120,7 +120,6 @@ if __name__ == "__main__":
 
         # Summary of results
         ax = fig.add_subplot(internal_spec[2])
-        ax.axhline(y=blood_test_auc, color=blood_tests_only_color, linestyle='-')
         # Adding CI of blood tests only
         best_auc_df = df.stack(level=0).reset_index().sort_values(by='auc', ascending=False).groupby(
             'subgroup').first().reset_index()
@@ -138,8 +137,11 @@ if __name__ == "__main__":
         ax.errorbar(**params)
         ax.set_ylim(bottom=0.7)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-        ax.legend(
-            handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
+        ax.axhline(y=blood_test_auc, color=blood_tests_only_color, linestyle='--', linewidth=3, label='Blood tests only')
+
+        # ax.legend(
+        #     handles=[mpatches.Patch(facecolor=blood_tests_only_color, label='Blood tests only', edgecolor='black')])
+        ax.legend()
         ax.set_xlabel("Ig epitope repertoire predictions\nbased on antigens selected from...")
         ax.set_ylabel('AUC of predictions\nbased on Ig epitope repertoire')
         ax.text(-0.1, 1.1, string.ascii_lowercase[3], transform=ax.transAxes, size=20, weight='bold')
