@@ -4,16 +4,32 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import cross_val_predict, LeaveOneOut
 
+from PhageIPSeq_CFS.Predictions.neural_networks_classifier import NeuralNetworkClassifier
 from PhageIPSeq_CFS.config import predictors_info, oligo_families, predictions_outcome_dir
 from PhageIPSeq_CFS.helpers import split_xy_df_and_filter_by_threshold, get_data_with_outcome, get_outcome
 
 
 def get_cross_validation_predictions(x, y, estimator):
     try:
-        ret = pd.Series(index=y.index,
-                        data=cross_val_predict(estimator, x, y,
-                                               cv=LeaveOneOut(),
-                                               method='predict_proba', n_jobs=-1)[:, 1]).to_frame()
+        if isinstance(estimator, NeuralNetworkClassifier):
+            loo = LeaveOneOut()
+            y_preds = {}
+            for train_idx, test_idx in loo.split(x):
+                x_train = x.iloc[train_idx]
+                y_train = y.loc[x_train.index]
+                x_test = x.iloc[test_idx]
+                y_test = y.loc[x_test.index]
+                try:
+                    estimator.fit(x_train, y_train)
+                    y_preds[y_test.index.values[0]] = estimator.predict_proba(x_test)[0][1]
+                except:
+                    raise IOError('error')
+            ret = pd.Series(y_preds).to_frame()
+        else:
+            ret = pd.Series(index=y.index,
+                            data=cross_val_predict(estimator, x, y,
+                                                   cv=LeaveOneOut(),
+                                                   method='predict_proba', n_jobs=-1)[:, 1]).to_frame()
     except Exception as e:
         print("here")
     return ret
@@ -24,7 +40,10 @@ def add_level_for_predictions(level_range, level_name, level_function, *args, **
     for level_value in level_range:
         kwargs[level_name] = level_value
         level_res = level_function(*args, **kwargs)
-        num_index_cols = level_res.reset_index().shape[1] - level_res.shape[1]
+        try:
+            num_index_cols = level_res.reset_index().shape[1] - level_res.shape[1]
+        except:
+            raise IOError("here")
         level_res[level_name] = level_value
         level_res.set_index(level_name, append=True, inplace=True)
         level_res = level_res.reorder_levels([-1] + list(range(num_index_cols)))
@@ -35,7 +54,7 @@ def add_level_for_predictions(level_range, level_name, level_function, *args, **
 
 def get_predictions_for_all_thresholds(estimator, xy_df):
     def foo(threshold_percent):
-        fillna = isinstance(estimator, GradientBoostingClassifier)
+        fillna = isinstance(estimator, GradientBoostingClassifier) or isinstance(estimator, NeuralNetworkClassifier)
         x, y = split_xy_df_and_filter_by_threshold(xy_df, bottom_threshold=threshold_percent / 100, fillna=fillna)
         if x.shape[1] == 0:
             x['dummy_feature'] = 1

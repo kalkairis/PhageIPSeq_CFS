@@ -3,6 +3,7 @@ import os
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier
 
+from PhageIPSeq_CFS.Predictions.neural_networks_classifier import NeuralNetworkClassifier
 from PhageIPSeq_CFS.Predictions.run_classifications_with_oligos import get_cross_validation_predictions, \
     add_level_for_predictions
 from PhageIPSeq_CFS.config import predictors_info, predictions_outcome_dir, oligo_families
@@ -11,7 +12,7 @@ from PhageIPSeq_CFS.helpers import get_data_with_outcome, split_xy_df_and_filter
 
 def get_predictions_for_all_thresholds(estimator, xy_df):
     def foo(threshold_percent):
-        fillna = isinstance(estimator, GradientBoostingClassifier)
+        fillna = isinstance(estimator, GradientBoostingClassifier) or isinstance(estimator, NeuralNetworkClassifier)
         x, y = split_xy_df_and_filter_by_threshold(xy_df, bottom_threshold=threshold_percent / 100, fillna=fillna)
         if x.shape[1] == 0:
             x['dummy_feature'] = 1
