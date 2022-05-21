@@ -1,6 +1,7 @@
 import os
 import string
 
+import matplotlib.image as mpimg
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -9,12 +10,11 @@ from scipy import stats
 from skbio.diversity.alpha import shannon
 from statannot import add_stat_annotation
 from statsmodels.stats.multitest import multipletests
-import matplotlib.image as mpimg
-
 
 from PhageIPSeq_CFS.config import visualizations_dir, oligo_families, oligo_families_colors, oligos_group_to_name
 from PhageIPSeq_CFS.helpers import get_data_with_outcome, get_oligos_metadata, split_xy_df_and_filter_by_threshold, \
     get_individuals_metadata_df
+
 
 def get_ratio_between_groups(group_name):
     df = get_data_with_outcome('exist')
@@ -26,11 +26,12 @@ def get_ratio_between_groups(group_name):
     stat, p_val = stats.ttest_ind(df.loc[True]['ratio'], df.loc[False]['ratio'])
     return stat, p_val
 
+
 def create_figure_1(overwrite=True):
     figures_dir = os.path.join(visualizations_dir, 'figure_1')
     os.makedirs(figures_dir, exist_ok=True)
     fig = plt.figure(figsize=(20, 10), constrained_layout=False)
-    spec = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)#, top=0.2, bottom=0.5)
+    spec = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)  # , top=0.2, bottom=0.5)
 
     # sub-figure a - Thomas will add manually the overview of the system
     ax = fig.add_subplot(spec[0, 0])
@@ -99,7 +100,8 @@ def create_figure_1(overwrite=True):
 
     df2 = get_data_with_outcome().fillna(1)
     df2['shannon_div'] = df2.apply(lambda row: shannon(row), axis=1)
-    df2['status'] = df2.reset_index()['is_CFS'].astype(bool).apply(lambda x: 'ME/CFS' if x else 'Healthy\ncontrols').values
+    df2['status'] = df2.reset_index()['is_CFS'].astype(bool).apply(
+        lambda x: 'ME/CFS' if x else 'Healthy\ncontrols').values
 
     internal_figure_spec = spec[0, 2].subgridspec(1, 2, wspace=0.6)
     ax = fig.add_subplot(internal_figure_spec[0])
@@ -113,7 +115,7 @@ def create_figure_1(overwrite=True):
     ax = fig.add_subplot(internal_figure_spec[1])
     ax = sns.boxplot(data=df2, x='status', y='shannon_div', palette=sns.color_palette()[-2:][::-1], ax=ax)
     ax.set_xlabel('')
-    ax.set_ylabel(r'Shannon $\alpha$-diversity' +' of\nantibody epitope repertoires')
+    ax.set_ylabel(r'Shannon $\alpha$-diversity' + ' of\nantibody epitope repertoires')
     add_stat_annotation(data=df2, x='status', y='shannon_div', ax=ax,
                         box_pairs=[['ME/CFS', 'Healthy\ncontrols']], test='Mann-Whitney'
                         )
@@ -188,20 +190,22 @@ def create_figure_1(overwrite=True):
     for group in metadata.columns:
         df_group = df.loc[:, metadata[group]].sum(axis=1)
         rank_sum_res[group] = stats.ranksums(df_group.loc[1], df_group.loc[0], alternative='greater')
-    rank_sum_res = pd.DataFrame(rank_sum_res).T.rename(columns={0: 'Ranksums', 1: 'p-value'})
-    rank_sum_res['Ranksums'] = rank_sum_res['Ranksums'].round(1)
-    rank_sum_res['Ranksums\np-value'] = rank_sum_res['p-value'].apply('{:.3f}'.format)
+    rank_sum_res = pd.DataFrame(rank_sum_res).T.rename(columns={0: 'MWW', 1: 'p-value'})
+    rank_sum_res['MWW'] = rank_sum_res['MWW'].round(1)
+    rank_sum_res['MWW\np-value'] = rank_sum_res['p-value'].apply('{:.3f}'.format)
     rank_sum_res.sort_values(by='p-value', inplace=True)
     rank_sum_res.drop(columns='p-value', inplace=True)
     ratio_t_tests = pd.DataFrame({oligos_group_to_name[oligo_family]: dict(
         zip(['t-test\nstatistic', 't-test\np-value'], get_ratio_between_groups(oligo_family))) for oligo_family in
-                                  oligo_families}).T
+        oligo_families}).T
     rank_sum_res = rank_sum_res.merge(ratio_t_tests, left_index=True, right_index=True, how='left')
     rank_sum_res['t-test\nstatistic'] = rank_sum_res['t-test\nstatistic'].round()
-    rank_sum_res['t-test\np-value'] = rank_sum_res['t-test\np-value'].apply(lambda val: 'n.a.' if pd.isnull(val) else '{:.0e}'.format(val))
+    rank_sum_res['t-test\np-value'] = rank_sum_res['t-test\np-value'].apply(
+        lambda val: 'n.a.' if pd.isnull(val) else '{:.0e}'.format(val))
     rank_sum_res.fillna('n.a.', inplace=True)
     table = ax.table(cellText=rank_sum_res.astype(str).values, rowLabels=rank_sum_res.index.values,
-                     colLabels=rank_sum_res.columns, loc='center right', colWidths=[0.15]*rank_sum_res.shape[1])
+                     colLabels=['t-test\nstatistic', 't-test\np-value', 'MWW', 'MWW\np-value'], loc='center right',
+                     colWidths=[0.15] * rank_sum_res.shape[1])
     table.scale(1, 2.9)
     ax.text(-0.1, 1.1, string.ascii_lowercase[5], transform=ax.transAxes, size=20, weight='bold')
 

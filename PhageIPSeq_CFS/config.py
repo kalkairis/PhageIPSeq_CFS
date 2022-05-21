@@ -14,15 +14,18 @@ oligos_group_to_name = {'is_PNP': 'Metagenomics\nantigens', 'all': 'Complete lib
                         'is_bac_flagella': 'Flagellins', 'is_IEDB_or_cntrl': 'IEDB/controls'}
 oligo_order = ['Complete library', 'IEDB/controls', 'Metagenomics\nantigens', 'Pathogenic strains', 'Probiotic strains',
                'Antibody-coated\nstrains', 'Flagellins']
-oligo_families_colors = dict(zip(oligo_order[1:], sns.color_palette()[:len(oligo_order)-1]))
-oligo_families_colors[oligo_order[0]] = sns.color_palette()[len(oligo_order)-1]
+oligo_families_colors = dict(zip(oligo_order[1:], sns.color_palette()[:len(oligo_order) - 1]))
+oligo_families_colors[oligo_order[0]] = sns.color_palette()[len(oligo_order) - 1]
 RANDOM_STATE = 156124
-predictors_info = {'xgboost': {'predictor_class': XGBClassifier, 'predictor_kwargs': {'use_label_encoder': False,
-                                                                                      'objective': 'binary:logistic',
-                                                                                      'eval_metric': 'logloss',
-                                                                                      'nthread': 1}},
-                   'GBR': {'predictor_class': GradientBoostingClassifier,
-                           'predictor_kwargs': {"n_estimators": 2000, "learning_rate": .01, "max_depth": 6,
-                                                "max_features": 1,
-                                                "min_samples_leaf": 10}}}
+predictors_info = {
+    'xgboost': {'predictor_class': XGBClassifier,
+                'predictor_kwargs': {'use_label_encoder': False,
+                                     'objective': 'binary:logistic',
+                                     'eval_metric': 'logloss',
+                                     'nthread': 1}},
+    'GBR': {'predictor_class': GradientBoostingClassifier,
+            'predictor_kwargs': {"n_estimators": 2000, "learning_rate": .01, "max_depth": 6,
+                                 "max_features": 1,
+                                 "min_samples_leaf": 10}}
+}
 num_auc_repeats = 200
